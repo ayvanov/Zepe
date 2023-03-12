@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
+import { html } from "https://deno.land/x/hono@v3.0.2/middleware.ts"
 
 class ZepeCalc {
   static advanceSlice = 15;
@@ -96,4 +97,23 @@ app.get(
       ),
     ),
 );
+
+app.get("/", (c) => {
+  return c.html(
+    html`<!DOCTYPE html>
+      <head>
+      <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
+          body {
+            font-family: 'Inter', sans-serif;
+          }
+      </style>
+      </head>
+      <body>
+        <h4>Hello from Zepe!</h4>
+      </body>
+      `
+  )
+});
+
 serve(app.fetch);
