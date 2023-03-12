@@ -63,7 +63,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth(),
-          monthSlice.slice(0, 25).lastIndexOf("0") + 1,
+          monthSlice.slice(0, 25).lastIndexOf("0"),
         ).toLocaleDateString("ru-RU"),
       },
       rest: {
@@ -71,7 +71,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth() + 1,
-          nextMonthSlice.slice(0, 10).lastIndexOf("0") + 1,
+          nextMonthSlice.slice(0, 10).lastIndexOf("0"),
         ).toLocaleDateString("ru-RU"),
       },
     };
