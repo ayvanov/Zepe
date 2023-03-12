@@ -17,11 +17,12 @@ class ZepeCalc {
     const now = new Date();
     const target = new Date(
       now.getFullYear(),
-      now.getMonth() - (offset * -1),
+      now.getMonth() - 1 - (offset * -1),
       1,
     );
     const year = target.getFullYear();
     const monthName = target.toLocaleDateString("ru-RU", { month: "long" });
+    const monthNum = target.getMonth() + 1;
     const url = `https://isdayoff.ru/api/getdata?year=${year}`;
     const api = await fetch(url);
     const yearData = await api.text();
@@ -32,8 +33,8 @@ class ZepeCalc {
       dataSlices.push(yearData.slice(sliceOffset, sliceOffset + daysInMonth));
       sliceOffset += daysInMonth;
     }
-    const monthSlice = dataSlices[target.getMonth() - 1];
-    const nextMonthSlice = dataSlices[target.getMonth()];
+    const monthSlice = dataSlices[monthNum - 1];
+    const nextMonthSlice = dataSlices[monthNum];
     const firstHalf = monthSlice.slice(0, 15);
     const advanceWorkdays =
       Array.from(firstHalf).filter((n) => n === "0").length;
@@ -45,7 +46,7 @@ class ZepeCalc {
 
     return {
       title: `Выплаты за ${monthName} ${year} при зарплате ${this.formatMoney(salary)} (на руки)`,
-      month: target.getMonth(),
+      monthNum,
       salary,
       year,
       dataSlices,
@@ -63,7 +64,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth(),
-          monthSlice.slice(0, 25).lastIndexOf("0"),
+          monthSlice.slice(0, 25).lastIndexOf("0") + 1,
         ).toLocaleDateString("ru-RU"),
       },
       rest: {
@@ -71,7 +72,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth() + 1,
-          nextMonthSlice.slice(0, 10).lastIndexOf("0"),
+          nextMonthSlice.slice(0, 10).lastIndexOf("0") + 1,
         ).toLocaleDateString("ru-RU"),
       },
     };
