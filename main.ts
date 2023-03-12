@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
 
 class ZepeCalc {
+  static advanceSlice = 15;
+  static salaryMultiplier = 1;
+  static advancePayDay = 25;
+  static restPayDay = 10;
+
   static round(num: number) {
     return Math.round(num + Number.EPSILON);
   }
@@ -35,13 +40,13 @@ class ZepeCalc {
     }
     const monthSlice = dataSlices[monthNum - 1];
     const nextMonthSlice = dataSlices[monthNum];
-    const firstHalf = monthSlice.slice(0, 15);
+    const firstHalf = monthSlice.slice(0, this.advanceSlice);
     const advanceWorkdays =
       Array.from(firstHalf).filter((n) => n === "0").length;
     const total = monthSlice.length;
     const workdays = Array.from(monthSlice).filter((n) => n === "0").length;
     const holydays = Array.from(monthSlice).filter((n) => n === "1").length;
-    const salaryPerDay = this.round(salary / workdays * 1);
+    const salaryPerDay = this.round(salary / workdays * this.salaryMultiplier);
     const advance = this.round(advanceWorkdays * salaryPerDay);
 
     return {
@@ -64,7 +69,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth(),
-          monthSlice.slice(0, 25).lastIndexOf("0") + 1,
+          monthSlice.slice(0, this.advancePayDay).lastIndexOf("0") + 1,
         ).toLocaleDateString("ru-RU"),
       },
       rest: {
@@ -72,7 +77,7 @@ class ZepeCalc {
         date: new Date(
           target.getFullYear(),
           target.getMonth() + 1,
-          nextMonthSlice.slice(0, 10).lastIndexOf("0") + 1,
+          nextMonthSlice.slice(0, this.restPayDay).lastIndexOf("0") + 1,
         ).toLocaleDateString("ru-RU"),
       },
     };
