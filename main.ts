@@ -44,9 +44,7 @@ class ZepeCalc {
     const advance = this.round(advanceWorkdays * salaryPerDay);
 
     return {
-      title: `Выплаты за ${monthName} ${year} при зарплате ${
-        this.formatMoney(salary)
-      } (на руки)`,
+      title: `Выплаты за ${monthName} ${year} при зарплате ${this.formatMoney(salary)} (на руки)`,
       month: target.getMonth(),
       salary,
       year,
