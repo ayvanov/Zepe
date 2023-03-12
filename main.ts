@@ -32,8 +32,8 @@ class ZepeCalc {
       dataSlices.push(yearData.slice(sliceOffset, sliceOffset + daysInMonth));
       sliceOffset += daysInMonth;
     }
-    const monthSlice = dataSlices[target.getMonth()];
-    const nextMonthSlice = dataSlices[target.getMonth() + 1];
+    const monthSlice = dataSlices[target.getMonth() - 1];
+    const nextMonthSlice = dataSlices[target.getMonth()];
     const firstHalf = monthSlice.slice(0, 15);
     const advanceWorkdays =
       Array.from(firstHalf).filter((n) => n === "0").length;
