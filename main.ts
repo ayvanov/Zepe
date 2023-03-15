@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
-import { html } from "https://deno.land/x/hono@v3.0.2/middleware.ts"
+import { html } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
+import { prettyJSON } from "https://deno.land/x/hono/middleware.ts";
 
 class ZepeCalc {
   static advanceSlice = 15;
@@ -51,7 +52,9 @@ class ZepeCalc {
     const advance = this.round(advanceWorkdays * salaryPerDay);
 
     return {
-      title: `Выплаты за ${monthName} ${year} при зарплате ${this.formatMoney(salary)} (на руки)`,
+      title: `Выплаты за ${monthName} ${year} при зарплате ${
+        this.formatMoney(salary)
+      } (на руки)`,
       monthNum,
       salary,
       year,
@@ -87,6 +90,8 @@ class ZepeCalc {
 
 const app = new Hono();
 
+app.use("*", prettyJSON());
+
 app.get(
   "/api/:salary/:offset?",
   async (c) =>
@@ -114,8 +119,8 @@ app.get("/", (c) => {
       <body>
         <h4>Hello from Zepe!</h4>
       </body>
-      `
-  )
+      `,
+  );
 });
 
 serve(app.fetch);
