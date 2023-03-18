@@ -160,10 +160,10 @@ app.get("/:s/:o?", async (c) => {
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: row;
+            flex-direction: column;
           }
           .date-value {
-            margin:10px;
+            margin:30px;
             text-align:center;
           }
           svg {
@@ -175,7 +175,7 @@ app.get("/:s/:o?", async (c) => {
           
       </style>
       </head>
-      <body style="text-align:center">
+      <body style="text-align:center; padding:20px;">
         <h2>${title}</h2>
         <div class="values-container">
           <div class="date-value">
