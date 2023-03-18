@@ -134,12 +134,12 @@ class ZepeCalc {
   }
 
   static async fetchYearSlices(year: number) {
-    let yearData = localStorage.getItem(year.toString());
+    let yearData = localStorage?.getItem(year.toString());
     if (!yearData) {
       const url = `https://isdayoff.ru/api/getdata?year=${year}`;
       const api = await fetch(url);
       yearData = await api.text();
-      localStorage.setItem(year.toString(), yearData);
+      localStorage?.setItem(year.toString(), yearData);
     }
     const dataSlices = [];
     let sliceOffset = 0;
