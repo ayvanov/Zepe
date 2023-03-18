@@ -1,11 +1,106 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
-import { html, raw } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
+import { html } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
 
-type ValueDate = {
+type DateValuePair = {
   value: number;
   date: Date;
 };
+
+class Format {
+  static round(num: number) {
+    return Math.round(num);
+  }
+
+  static money(num: number) {
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency: "RUB",
+      notation: "compact",
+    }).format(num);
+  }
+}
+
+class MonthMeta {
+  static salaryMultiplier = 1;
+  static advanceDays = 15;
+  static advancePayDay = 25;
+  static restPayDay = 10;
+  #monthSlice: string;
+  #advanceSlice: string;
+  salary = 0;
+  monthNum;
+  year;
+
+  get total() {
+    return this.#monthSlice.length;
+  }
+  get workdays() {
+    return Array.from(this.#monthSlice).filter((n) => n === "0").length;
+  }
+  get holydays() {
+    return Array.from(this.#monthSlice).filter((n) => n === "1").length;
+  }
+  get salaryPerDay() {
+    if (this.workdays === 0) return 0;
+    return Format.round(
+      this.salary / this.workdays * MonthMeta.salaryMultiplier,
+    );
+  }
+  get advanceWorkdays() {
+    return Array.from(this.#advanceSlice).filter((n) => n === "0").length;
+  }
+  get advanceValue() {
+    return Format.round(this.salaryPerDay * this.advanceWorkdays);
+  }
+  get advanceDate() {
+    return new Date(
+      this.year,
+      this.monthNum - 1,
+      this.#monthSlice.slice(0, MonthMeta.advancePayDay).lastIndexOf("0") + 1,
+    );
+  }
+  get restValue() {
+    return this.salary - this.advanceValue;
+  }
+  get restDate() {
+    return new Date(
+      this.year,
+      this.monthNum,
+      this.#monthSlice.slice(0, MonthMeta.restPayDay).lastIndexOf("0") + 1,
+    );
+  }
+
+  constructor(
+    monthSlice: string,
+    monthNum: number,
+    salary: number = 0,
+    year: number,
+  ) {
+    this.#monthSlice = monthSlice;
+    this.#advanceSlice = monthSlice.slice(0, MonthMeta.advanceDays);
+    this.salary = salary;
+    this.monthNum = monthNum;
+    this.year = year || new Date().getFullYear();
+  }
+
+  toJSON() {
+    return {
+      monthNum: this.monthNum,
+      salary: this.salary,
+      totalDays: this.total,
+      workdays: this.workdays,
+      holydays: this.holydays,
+      salaryPerDay: this.salaryPerDay,
+      advanceWorkdays: this.advanceWorkdays,
+      advanceValue: this.advanceValue,
+      advanceDate: this.advanceDate,
+      restValue: this.restValue,
+      restDate: this.restDate,
+    };
+  }
+}
+
 type CalcResponce = {
   target: Date;
   monthNum: number;
@@ -14,150 +109,92 @@ type CalcResponce = {
   dataSlices: string[];
   monthSlice: string;
   firstHalf: string;
-  days: {
-    total: number;
-    workdays: number;
-    holydays: number;
-    salaryPerDay: number;
-    advanceWorkdays: number;
-  };
-  advance: ValueDate;
-  rest: ValueDate;
-  next: ValueDate | undefined;
+  days: MonthMeta;
+  advance: DateValuePair;
+  rest: DateValuePair;
+  next: DateValuePair | undefined;
 };
 
 class ZepeCalc {
-  static advanceSlice = 15;
-  static salaryMultiplier = 1;
-  static advancePayDay = 25;
-  static restPayDay = 10;
+  static async getYearData({ year = 0, salary = 0 }) {
+    year = year || new Date().getFullYear();
+    const yearDataSlices = await this.fetchYearSlices(year);
+    const monthsMeta: MonthMeta[] = [];
+    for (const monthNum of Object.keys(yearDataSlices)) {
+      monthsMeta.push(
+        new MonthMeta(
+          yearDataSlices[Number(monthNum)],
+          Number(monthNum) + 1,
+          salary,
+          year,
+        ),
+      );
+    }
+    return { [year]: monthsMeta };
+  }
 
-  static round(num: number) {
-    return Math.round(num + Number.EPSILON);
-  }
-  static formatMoney(num: number) {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "RUB",
-      notation: "compact",
-    }).format(num);
-  }
-  static async getData(
-    salary = 0,
-    offset = 0,
-    getNext = true,
-  ): Promise<CalcResponce> {
-    salary = Number(salary);
-    const now = new Date();
-    const target = new Date(
-      now.getFullYear(),
-      now.getMonth() - 1 - (offset * -1),
-      1,
-    );
-    const year = target.getFullYear();
-    const monthNum = target.getMonth() + 1;
-    const url = `https://isdayoff.ru/api/getdata?year=${year}`;
-    const api = await fetch(url);
-    const yearData = await api.text();
+  static async fetchYearSlices(year: number) {
+    let yearData = localStorage.getItem(year.toString());
+    if (!yearData) {
+      const url = `https://isdayoff.ru/api/getdata?year=${year}`;
+      const api = await fetch(url);
+      yearData = await api.text();
+      localStorage.setItem(year.toString(), yearData);
+    }
     const dataSlices = [];
     let sliceOffset = 0;
     for (let month = 1; month <= 12; month++) {
-      const daysInMonth = new Date(target.getFullYear(), month, 0).getDate();
+      const daysInMonth = new Date(year, month, 0).getDate();
       dataSlices.push(yearData.slice(sliceOffset, sliceOffset + daysInMonth));
       sliceOffset += daysInMonth;
     }
-    const monthSlice = dataSlices[monthNum - 1];
-    const nextMonthSlice = dataSlices[monthNum];
-    const firstHalf = monthSlice.slice(0, this.advanceSlice);
-    const advanceWorkdays =
-      Array.from(firstHalf).filter((n) => n === "0").length;
-    const total = monthSlice.length;
-    const workdays = Array.from(monthSlice).filter((n) => n === "0").length;
-    const holydays = Array.from(monthSlice).filter((n) => n === "1").length;
-    const salaryPerDay = this.round(salary / workdays * this.salaryMultiplier);
-    const advance = this.round(advanceWorkdays * salaryPerDay);
-    const { advance: next } = getNext
-      ? await this.getData(salary, offset + 1, false)
-      : { advance: undefined };
-    return {
-      target,
-      monthNum,
-      salary,
-      year,
-      dataSlices,
-      monthSlice,
-      firstHalf,
-      days: {
-        total,
-        workdays,
-        holydays,
-        salaryPerDay,
-        advanceWorkdays,
-      },
-      advance: {
-        value: advance,
-        date: new Date(
-          target.getFullYear(),
-          target.getMonth(),
-          monthSlice.slice(0, this.advancePayDay).lastIndexOf("0") + 1,
-        ),
-      },
-      rest: {
-        value: this.round(salary - advance),
-        date: new Date(
-          target.getFullYear(),
-          target.getMonth() + 1,
-          nextMonthSlice.slice(0, this.restPayDay).lastIndexOf("0") + 1,
-        ),
-      },
-      next,
-    };
+    return dataSlices;
   }
 }
 
 const app = new Hono();
 
-app.get(
-  "/api/:salary/:offset?",
-  async (c) =>
-    c.json(
-      await ZepeCalc.getData(
-        Number(c.req.param("salary") || 0),
-        Number(c.req.param("offset") || 0),
-      ),
-    ),
-);
+app.get("/api/:s/:y?", async (c) =>
+  c.json(
+    await ZepeCalc.getYearData({
+      salary: Number(c.req.param("s")),
+      year: Number(c.req.param("y")),
+    }),
+  ));
 
-app.get("/:s/:o?", async (c) => {
-  const data = await ZepeCalc.getData(
-    Number(c.req.param("s") || 0),
-    Number(c.req.param("o") || 0),
-  );
-  const title = `Выплаты за ${
-    data.target.toLocaleDateString("ru-RU", { month: "long" })
-  } при зарплате ${ZepeCalc.formatMoney(data.salary)}`;
-
-  const DateValueBlock = (props: ValueDate) =>
-    html`
+app.get("/:salary/:year?", async (c) => {
+  const data = await ZepeCalc.getYearData({
+    salary: Number(c.req.param("salary")),
+    year: Number(c.req.param("year")),
+  });
+  console.log(data);
+  const DateValueBlock = (props: DateValuePair) => {
+    const textDate = props.date.toLocaleDateString("ru-Ru", {
+      day: "numeric",
+      month: "long",
+    });
+    return html`
     <div class="date-value">
-      <div class="value">${ZepeCalc.formatMoney(props.value)}</div>
+      <div class="value">${Format.money(props.value)}</div>
       <div class="separator">&mdash;</div>
-      <div class="date">${props.date.toLocaleDateString("ru-Ru", { day: "numeric", month: "long" })
-    }</div>
+      <div class="date">${textDate}</div>
     </div>
   `;
+  };
 
   return c.html(
     html`
     <!DOCTYPE html>
       <head>
-      <title>${title}</title>
+      <title></title>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;900&display=swap');
           body {
             font-family: 'Inter', sans-serif;
+            text-align:center; 
+            padding:20px;
           }
           .values-container{
             display: flex;
@@ -187,12 +224,9 @@ app.get("/:s/:o?", async (c) => {
           
       </style>
       </head>
-      <body style="text-align:center; padding:20px;">
-        <h2>${title}</h2>
+      <body>
         <div class="values-container">
-          ${DateValueBlock(data.advance)}
-          ${DateValueBlock(data.rest)}
-          ${data.next && DateValueBlock(data.next)}
+          
           </div>
       </body>
       `,
