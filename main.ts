@@ -189,9 +189,10 @@ app.get("/:salary/:year?", async (c) => {
       month: "long",
       weekday: "short",
     });
+    const pastClass = (props.date && new Date() > props.date) ? " past" : "";
     return html`
     <div class="date-value">
-      <div class="value">${Format.money(props.value)}</div>
+      <div class="value${pastClass}">${Format.money(props.value)}</div>
       <div class="separator">&mdash;</div>
       <div class="date">${textDate || ""}</div>
     </div>
@@ -256,6 +257,9 @@ app.get("/:salary/:year?", async (c) => {
             font-weight: 800;
             place-self: start;
             align-self: center;
+          }
+          .value.past {
+            opacity:.5;
           }
       </style>
       </head>
