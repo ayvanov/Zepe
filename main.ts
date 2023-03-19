@@ -4,7 +4,7 @@ import { html, raw } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
 
 type DateValuePair = {
   value: number;
-  date: Date;
+  date: Date | undefined;
 };
 
 class Format {
@@ -27,6 +27,7 @@ class MonthMeta {
   static advancePayDay = 25;
   static restPayDay = 10;
   #monthSlice: string;
+  #nextMonthSlice: string;
   #advanceSlice: string;
   salary = 0;
   monthNum;
@@ -64,20 +65,23 @@ class MonthMeta {
     return this.salary - this.advanceValue;
   }
   get restDate() {
+    if (!this.#nextMonthSlice) return undefined;
     return new Date(
       this.year,
       this.monthNum,
-      this.#monthSlice.slice(0, MonthMeta.restPayDay).lastIndexOf("0") + 1,
+      this.#nextMonthSlice.slice(0, MonthMeta.restPayDay).lastIndexOf("0") + 1,
     );
   }
 
   constructor(
     monthSlice: string,
+    nextMonthSlice: string,
     monthNum: number,
     salary: number = 0,
     year: number,
   ) {
     this.#monthSlice = monthSlice;
+    this.#nextMonthSlice = nextMonthSlice;
     this.#advanceSlice = monthSlice.slice(0, MonthMeta.advanceDays);
     this.salary = salary;
     this.monthNum = monthNum;
@@ -97,6 +101,8 @@ class MonthMeta {
       advanceDate: this.advanceDate,
       restValue: this.restValue,
       restDate: this.restDate,
+      slice: this.#monthSlice,
+      advanceSlice: this.#advanceSlice,
     };
   }
 }
@@ -124,6 +130,7 @@ class ZepeCalc {
       monthsMeta.push(
         new MonthMeta(
           yearDataSlices[Number(monthNum)],
+          yearDataSlices[Number(monthNum) + 1],
           Number(monthNum) + 1,
           salary,
           year,
@@ -177,7 +184,7 @@ app.get("/:salary/:year?", async (c) => {
   };
 
   const DateValueBlock = (props: DateValuePair) => {
-    const textDate = props.date.toLocaleDateString("ru-Ru", {
+    const textDate = props.date?.toLocaleDateString("ru-Ru", {
       day: "numeric",
       month: "long",
       weekday: "short",
@@ -186,7 +193,7 @@ app.get("/:salary/:year?", async (c) => {
     <div class="date-value">
       <div class="value">${Format.money(props.value)}</div>
       <div class="separator">&mdash;</div>
-      <div class="date">${textDate}</div>
+      <div class="date">${textDate || ""}</div>
     </div>
   `;
   };
@@ -216,8 +223,8 @@ app.get("/:salary/:year?", async (c) => {
           .month {
             box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             transition: box-shadow 0.3s ease-in-out;
-            padding:0.5rem 2rem;
-            margin:2rem;
+            padding:0.5rem 1rem;
+            margin:1rem 0;
             background: #fff;
           }
           .month:hover {
@@ -225,9 +232,10 @@ app.get("/:salary/:year?", async (c) => {
           }
           .month > h3 {
             text-transform:capitalize;
+            margin-top: .2rem;
           }
           .date-value {
-            margin:1rem;
+            margin:.5rem .5rem 1rem .5rem;
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             place-items: center;
