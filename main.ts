@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
-import { html } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
+import { html, raw } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
 
 type DateValuePair = {
   value: number;
@@ -163,11 +163,24 @@ app.get("/:salary/:year?", async (c) => {
     salary: Number(c.req.param("salary")),
     year: Number(c.req.param("year")),
   });
-  console.log(data);
+  const now = new Date();
+  const MonthMetaFragment = (props: MonthMeta) => {
+    const monthName = new Date(now.getFullYear(), props.monthNum - 1, 1)
+      .toLocaleDateString("ru-Ru", { month: "long" });
+    return html`
+    <div class="month">
+      <h3>${monthName}</h3>
+      ${DateValueBlock({ date: props.advanceDate, value: props.advanceValue })}
+      ${DateValueBlock({ date: props.restDate, value: props.restValue })}
+    </div>
+    `;
+  };
+
   const DateValueBlock = (props: DateValuePair) => {
     const textDate = props.date.toLocaleDateString("ru-Ru", {
       day: "numeric",
       month: "long",
+      weekday: "short",
     });
     return html`
     <div class="date-value">
@@ -177,7 +190,15 @@ app.get("/:salary/:year?", async (c) => {
     </div>
   `;
   };
-
+  let htmlFragment = "";
+  for (const year in data) {
+    if (Object.prototype.hasOwnProperty.call(data, year)) {
+      const yearData = data[year];
+      for (const monthMeta of yearData) {
+        htmlFragment += MonthMetaFragment(monthMeta);
+      }
+    }
+  }
   return c.html(
     html`
     <!DOCTYPE html>
@@ -190,40 +211,48 @@ app.get("/:salary/:year?", async (c) => {
           body {
             font-family: 'Inter', sans-serif;
             text-align:center; 
-            padding:20px;
+            background: #f1f5f9;
           }
-          .values-container{
-            display: flex;
-            align-items: center;
-            flex-direction: column;
+          .month {
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            transition: box-shadow 0.3s ease-in-out;
+            padding:0.5rem 2rem;
+            margin:2rem;
+            background: #fff;
+          }
+          .month:hover {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+          }
+          .month > h3 {
+            text-transform:capitalize;
           }
           .date-value {
-            margin:20px;
-            display:flex;
-            flex-direction:row;
-            min-width:280px;
-            place-content: space-between;
+            margin:1rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             place-items: center;
           }
           .date {
             font-weight: 500;
-            font-size: 1rem;
+            font-size: .9rem;
+            place-self: start;
+            align-self: center;
           }
           .separator{
-            font-weight: 500;
-            font-size: 2rem;
+            font-weight: 400;
+            font-size: 1.5rem;
+            margin: 0 .5rem 0 .5rem;
           }
           .value {
             font-size: 1.5rem;
             font-weight: 800;
+            place-self: start;
+            align-self: center;
           }
-          
       </style>
       </head>
       <body>
-        <div class="values-container">
-          
-          </div>
+        ${raw(htmlFragment)}
       </body>
       `,
   );
