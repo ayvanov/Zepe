@@ -215,7 +215,7 @@ app.get("/:salary/:year?", async (c) => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;900&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap');
           body {
             font-family: 'Inter', sans-serif;
             text-align:center; 
