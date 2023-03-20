@@ -107,20 +107,6 @@ class MonthMeta {
   }
 }
 
-type CalcResponce = {
-  target: Date;
-  monthNum: number;
-  salary: number;
-  year: number;
-  dataSlices: string[];
-  monthSlice: string;
-  firstHalf: string;
-  days: MonthMeta;
-  advance: DateValuePair;
-  rest: DateValuePair;
-  next: DateValuePair | undefined;
-};
-
 class ZepeCalc {
   static async getYearData({ year = 0, salary = 0 }) {
     year = year || new Date().getFullYear();
