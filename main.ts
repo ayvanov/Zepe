@@ -211,7 +211,8 @@ app.get("/:salary/:year?", async (c) => {
             box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             transition: box-shadow 0.3s ease-in-out;
             padding:0.5rem 1rem;
-            margin:1rem 0;
+            margin:.5rem auto;
+            max-width:35rem;
             background: #fff;
           }
           .month:hover {
