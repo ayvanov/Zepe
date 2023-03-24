@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
-import { Hono } from "https://deno.land/x/hono@v3.0.2/mod.ts";
-import { html, raw } from "https://deno.land/x/hono@v3.0.2/middleware.ts";
+import { Hono } from "https://deno.land/x/hono@v3.1.2/mod.ts";
+import { html, raw, serveStatic } from "https://deno.land/x/hono@v3.1.2/middleware.ts";
 
 type DateValuePair = {
   value: number;
@@ -143,6 +143,8 @@ class ZepeCalc {
 
 const app = new Hono();
 
+app.use('/manifest.json', serveStatic({ path: './manifest.json' }));
+
 app.get("/api/:s/:y?", async (c) =>
   c.json(
     await ZepeCalc.getYearData({
@@ -200,6 +202,7 @@ app.get("/:salary/:year?", async (c) => {
       <title></title>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="manifest" href="/manifest.json" />
       <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap');
           body {

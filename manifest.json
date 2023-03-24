@@ -1,0 +1,17 @@
+{
+  "background_color": "#ffffff",
+  "description": "Zepe Calculator",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Zepe",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "short_name": "Zepe",
+  "start_url": "/250000",
+  "theme_color": "#ffffff",
+  "categories": [],
+  "screenshots": [],
+  "icons": [],
+  "shortcuts": [],
+  "lang": "ru"
+}
