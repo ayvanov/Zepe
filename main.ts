@@ -147,6 +147,7 @@ class ZepeCalc {
 
 const app = new Hono();
 
+app.use('/icons/*', serveStatic({ root: './icons' }))
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
