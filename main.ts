@@ -6,6 +6,11 @@ import {
   serveStatic,
 } from "https://deno.land/x/hono@v3.1.2/middleware.ts";
 
+import { resolve, fromFileUrl, dirname, normalize } from "https://deno.land/std@0.178.0/path/mod.ts";
+
+const __filename = fromFileUrl(import.meta.url);
+const __dirname = dirname(fromFileUrl(import.meta.url));
+
 type DateValuePair = {
   value: number;
   date: Date | undefined;
@@ -147,7 +152,10 @@ class ZepeCalc {
 
 const app = new Hono();
 
-app.use('/icons/*', serveStatic({ root: './icons' }))
+app.use('/icons/android/*', serveStatic({ root: './' }));
+app.use('/icons/ios/*', serveStatic({ root: './' }));
+app.use('/icons/windows11/*', serveStatic({ root: './' }));
+app.use('/favicon.ico', serveStatic({ path: './icons/android/android-launchericon-48-48.png' }))
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
@@ -207,7 +215,7 @@ app.get("/:salary/:year?", async (c) => {
       <head>
       <title>Zepe</title>
       <meta charset="UTF-8">
-      <link rel="icon" href="/icons/android-launchericon-48-48.png" type="image/png" />
+      <link rel="icon" href="/favicon.ico" type="image/png" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <link rel="manifest" href="/manifest.json" />
       <style>
