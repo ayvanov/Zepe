@@ -204,8 +204,9 @@ app.get("/:salary/:year?", async (c) => {
     html`
     <!DOCTYPE html>
       <head>
-      <title></title>
+      <title>Zepe</title>
       <meta charset="UTF-8">
+      <link rel="icon" href="/icons/android-launchericon-48-48.png" type="image/png" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <link rel="manifest" href="/manifest.json" />
       <style>
