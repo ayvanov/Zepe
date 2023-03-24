@@ -144,6 +144,7 @@ class ZepeCalc {
 const app = new Hono();
 
 app.use('/manifest.json', serveStatic({ path: './manifest.json' }));
+app.use('/sw.js', serveStatic({ path: './sw.js' }));
 
 app.get("/api/:s/:y?", async (c) =>
   c.json(
@@ -252,6 +253,11 @@ app.get("/:salary/:year?", async (c) => {
             opacity:.5;
           }
       </style>
+      <script>
+        if (typeof navigator.serviceWorker !== 'undefined') {
+          navigator.serviceWorker.register('/sw.js')
+        }
+      </script>
       </head>
       <body>
         ${raw(htmlFragment)}
