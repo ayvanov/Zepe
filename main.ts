@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.1.2/mod.ts";
-import { html, raw, serveStatic } from "https://deno.land/x/hono@v3.1.2/middleware.ts";
+import {
+  html,
+  raw,
+  serveStatic,
+} from "https://deno.land/x/hono@v3.1.2/middleware.ts";
 
 type DateValuePair = {
   value: number;
@@ -143,8 +147,8 @@ class ZepeCalc {
 
 const app = new Hono();
 
-app.use('/manifest.json', serveStatic({ path: './manifest.json' }));
-app.use('/sw.js', serveStatic({ path: './sw.js' }));
+app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
+app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
 app.get("/api/:s/:y?", async (c) =>
   c.json(
@@ -255,7 +259,11 @@ app.get("/:salary/:year?", async (c) => {
       </style>
       <script>
         if (typeof navigator.serviceWorker !== 'undefined') {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('/sw.js').then(
+            (registration) => {
+              console.log("Service worker registration succeeded:", registration);
+            },
+          )
         }
       </script>
       </head>
