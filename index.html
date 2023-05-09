@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <title>Zepe</title>
+  <meta charset="UTF-8">
+  <link rel="icon" href="/favicon.ico" type="image/png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/public/style.css">
+  <link rel="manifest" href="/manifest.json" />
+  <script>
+    if (typeof navigator.serviceWorker !== 'undefined') {
+      navigator.serviceWorker.register('/sw.js').then(
+        (registration) => {
+          console.log("Service worker registration succeeded:", registration);
+        },
+      )
+    }
+  </script>
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+
+</html>

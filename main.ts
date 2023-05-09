@@ -155,6 +155,7 @@ const app = new Hono();
 app.use('/icons/android/*', serveStatic({ root: './' }));
 app.use('/icons/ios/*', serveStatic({ root: './' }));
 app.use('/icons/windows11/*', serveStatic({ root: './' }));
+app.use('/public/*', serveStatic({ root: './' }));
 app.use('/favicon.ico', serveStatic({ path: './icons/android/android-launchericon-48-48.png' }))
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
@@ -209,79 +210,10 @@ app.get("/:salary/:year?", async (c) => {
       }
     }
   }
-  return c.html(
-    html`
-    <!DOCTYPE html>
-      <head>
-      <title>Zepe</title>
-      <meta charset="UTF-8">
-      <link rel="icon" href="/favicon.ico" type="image/png" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="manifest" href="/manifest.json" />
-      <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap');
-          body {
-            font-family: 'Inter', sans-serif;
-            text-align:center; 
-            background: #f1f5f9;
-          }
-          .month {
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-            transition: box-shadow 0.3s ease-in-out;
-            padding:0.5rem 1rem;
-            margin:.5rem auto;
-            max-width:35rem;
-            background: #fff;
-          }
-          .month:hover {
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-          }
-          .month > h3 {
-            text-transform:capitalize;
-            margin-top: .2rem;
-          }
-          .date-value {
-            margin:.5rem .5rem 1rem .5rem;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            place-items: center;
-          }
-          .date {
-            font-weight: 500;
-            font-size: .9rem;
-            place-self: start;
-            align-self: center;
-          }
-          .separator{
-            font-weight: 400;
-            font-size: 1.5rem;
-            margin: 0 .5rem 0 .5rem;
-          }
-          .value {
-            font-size: 1.5rem;
-            font-weight: 800;
-            place-self: start;
-            align-self: center;
-          }
-          .value.past {
-            opacity:.5;
-          }
-      </style>
-      <script>
-        if (typeof navigator.serviceWorker !== 'undefined') {
-          navigator.serviceWorker.register('/sw.js').then(
-            (registration) => {
-              console.log("Service worker registration succeeded:", registration);
-            },
-          )
-        }
-      </script>
-      </head>
-      <body>
-        ${raw(htmlFragment)}
-      </body>
-      `,
-  );
+  const decoder = new TextDecoder("utf-8");
+  const htmlSource = await Deno.readFile('index.html');
+
+  return c.html(decoder.decode(htmlSource).replace('<div id="app"></div>', `<div id="app">${htmlFragment}</div>`));
 });
 
 serve(app.fetch);
