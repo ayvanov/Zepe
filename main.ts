@@ -6,7 +6,12 @@ import {
   serveStatic,
 } from "https://deno.land/x/hono@v3.1.2/middleware.ts";
 
-import { resolve, fromFileUrl, dirname, normalize } from "https://deno.land/std@0.178.0/path/mod.ts";
+import {
+  dirname,
+  fromFileUrl,
+  normalize,
+  resolve,
+} from "https://deno.land/std@0.178.0/path/mod.ts";
 
 const __filename = fromFileUrl(import.meta.url);
 const __dirname = dirname(fromFileUrl(import.meta.url));
@@ -136,15 +141,37 @@ class ZepeCalc {
   }
 
   static async fetchYearSlices(year: number) {
-    const url = `https://isdayoff.ru/api/getdata?year=${year}`;
-    const api = await fetch(url);
-    const yearData = await api.text();
+    let cachedYearData = { value: null };
+    let kv;
+    try {
+      kv = await Deno.openKv();
+      cachedYearData = await kv.get(["yearData", year]);
+    } catch (e) {
+      console.error("Deno KV is not available", e);
+    }
+    let yearData = "";
+    if (!cachedYearData.value) {
+      const url = `https://isdayoff.ru/api/getdata?year=${year}`;
+      const api = await fetch(url);
+      yearData = await api.text();
+      try {
+        await kv?.set(["yearData", year], yearData);
+      } catch (e) {
+        console.error("Deno KV is not available", e);
+      }
+    } else {
+      yearData = String(cachedYearData.value);
+    }
     const dataSlices = [];
-    let sliceOffset = 0;
-    for (let month = 1; month <= 12; month++) {
-      const daysInMonth = new Date(year, month, 0).getDate();
-      dataSlices.push(yearData.slice(sliceOffset, sliceOffset + daysInMonth));
-      sliceOffset += daysInMonth;
+    if (yearData.length) {
+      let sliceOffset = 0;
+      for (let month = 1; month <= 12; month++) {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        dataSlices.push(yearData.slice(sliceOffset, sliceOffset + daysInMonth));
+        sliceOffset += daysInMonth;
+      }
+    } else {
+      throw new Error("Failed to fetch Year Data");
     }
     return dataSlices;
   }
@@ -152,11 +179,14 @@ class ZepeCalc {
 
 const app = new Hono();
 
-app.use('/icons/android/*', serveStatic({ root: './' }));
-app.use('/icons/ios/*', serveStatic({ root: './' }));
-app.use('/icons/windows11/*', serveStatic({ root: './' }));
-app.use('/public/*', serveStatic({ root: './' }));
-app.use('/favicon.ico', serveStatic({ path: './icons/android/android-launchericon-48-48.png' }))
+app.use("/icons/android/*", serveStatic({ root: "./" }));
+app.use("/icons/ios/*", serveStatic({ root: "./" }));
+app.use("/icons/windows11/*", serveStatic({ root: "./" }));
+app.use("/public/*", serveStatic({ root: "./" }));
+app.use(
+  "/favicon.ico",
+  serveStatic({ path: "./icons/android/android-launchericon-48-48.png" }),
+);
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
@@ -211,9 +241,14 @@ app.get("/:salary/:year?", async (c) => {
     }
   }
   const decoder = new TextDecoder("utf-8");
-  const htmlSource = await Deno.readFile('index.html');
+  const htmlSource = await Deno.readFile("index.html");
 
-  return c.html(decoder.decode(htmlSource).replace('<div id="app"></div>', `<div id="app">${htmlFragment}</div>`));
+  return c.html(
+    decoder.decode(htmlSource).replace(
+      '<div id="app"></div>',
+      `<div id="app">${htmlFragment}</div>`,
+    ),
+  );
 });
 
 serve(app.fetch);
