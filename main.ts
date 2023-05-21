@@ -154,13 +154,16 @@ class ZepeCalc {
       const url = `https://isdayoff.ru/api/getdata?year=${year}`;
       const api = await fetch(url);
       yearData = await api.text();
+      console.log("fetched from remote");
       try {
         await kv?.set(["yearData", year], yearData);
+        console.log("Cached to KV");
       } catch (e) {
         console.error("Deno KV is not available", e);
       }
     } else {
       yearData = String(cachedYearData.value);
+      console.log("fetched from cache");
     }
     const dataSlices = [];
     if (yearData.length) {
