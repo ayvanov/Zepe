@@ -147,16 +147,10 @@ class ZepeCalc {
       console.error("Deno KV is not available", e);
     }
     let yearData = "";
-    let nextYearFirstMonthData = "";
     if (!cachedYearData.value) {
       const url = `https://isdayoff.ru/api/getdata?year=${year}`;
       const res = await fetch(url);
       yearData = await res.text();
-      const nextYearFirstMonthUrl = `https://isdayoff.ru/api/getdata?year=${
-        year + 1
-      }&month=1`;
-      const nextRes = await fetch(nextYearFirstMonthUrl);
-      nextYearFirstMonthData = await nextRes.text();
       console.log("fetched from remote");
       try {
         await kv?.set(["yearData", year], yearData);
@@ -168,6 +162,12 @@ class ZepeCalc {
       yearData = String(cachedYearData.value);
       console.log("fetched from cache");
     }
+    const nextYearFirstMonthUrl = `https://isdayoff.ru/api/getdata?year=${
+      year + 1
+    }&month=1`;
+    // always prefetch next january
+    const nextRes = await fetch(nextYearFirstMonthUrl);
+    const nextYearFirstMonthData = await nextRes.text();
     const dataSlices = [];
     if (yearData.length) {
       let sliceOffset = 0;
