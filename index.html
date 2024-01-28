@@ -1,25 +1,45 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <title>Zepe</title>
-  <meta charset="UTF-8">
-  <link rel="icon" href="/favicon.ico" type="image/png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/public/style.css">
-  <link rel="manifest" href="/manifest.json" />
-  <script>
-    if (typeof navigator.serviceWorker !== 'undefined') {
-      navigator.serviceWorker.register('/sw.js').then(
-        (registration) => {
+  <head>
+    <title>Zepe</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/public/style.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <script>
+      if (typeof navigator.serviceWorker !== "undefined") {
+        navigator.serviceWorker.register("/sw.js").then((registration) => {
           console.log("Service worker registration succeeded:", registration);
-        },
-      )
-    }
-  </script>
-</head>
+        });
+      }
+      const salary = Number(localStorage.getItem("salary"));
+      console.log(salary);
+      if (location.pathname === "/" && salary > 0) {
+        location.href = "/" + salary;
+      }
+      function cacheSalary() {
+        localStorage.setItem("salary", document.querySelector("#salary").value);
+        location.href = "/";
+      }
+      addEventListener("hashchange", (event) => {
+        if (location.hash === "#settings") {
+          document.querySelector("#settings").setAttribute("open", "open");
+        }
+      });
+    </script>
+  </head>
 
-<body>
-  <div id="app"></div>
-</body>
-
+  <body>
+    <dialog id="settings">
+      <div>
+        <label for="salary">Зарплата</label>
+      </div>
+      <input id="salary" type="number" value="" autofocus />
+      <div>
+        <button onclick="cacheSalary();">Сохранить</button>
+      </div>
+    </dialog>
+    {app}
+  </body>
 </html>

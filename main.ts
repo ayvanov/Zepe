@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.179.0/http/server.ts";
 import { Hono } from "https://deno.land/x/hono@v3.1.2/mod.ts";
 import {
   html,
@@ -9,6 +8,7 @@ import {
   dirname,
   fromFileUrl,
 } from "https://deno.land/std@0.178.0/path/mod.ts";
+import { Context } from "https://deno.land/x/hono@v3.1.2/context.ts";
 
 const __filename = fromFileUrl(import.meta.url);
 const __dirname = dirname(fromFileUrl(import.meta.url));
@@ -199,7 +199,17 @@ app.use(
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
-app.get("/api/:s/:y?", async (c) =>
+const settingsButtonHtml = '<a id="settings-btn" href="#settings">&nbsp;</a>';
+
+app.get("/", async (c: Context) => {
+  const decoder = new TextDecoder("utf-8");
+  const htmlSource = await Deno.readFile("index.html");
+  return c.html(
+    decoder.decode(htmlSource).replace("{app}", settingsButtonHtml)
+  );
+});
+
+app.get("/api/:s/:y?", async (c: Context) =>
   c.json(
     await ZepeCalc.getYearData({
       salary: Number(c.req.param("s")),
@@ -208,7 +218,7 @@ app.get("/api/:s/:y?", async (c) =>
   )
 );
 
-app.get("/:salary/:year?", async (c) => {
+app.get("/:salary/:year?", async (c: Context) => {
   const year = Number(c.req.param("year") || new Date().getFullYear());
   const data = await ZepeCalc.getYearData({
     salary: Number(c.req.param("salary")),
@@ -248,7 +258,7 @@ app.get("/:salary/:year?", async (c) => {
       </div>
     `;
   };
-  let htmlFragment = `<h1>${year}</h1>`;
+  let htmlFragment = `<h1>${year}${settingsButtonHtml}</h1>`;
   for (const year in data) {
     if (Object.prototype.hasOwnProperty.call(data, year)) {
       const yearData = data[year];
@@ -263,11 +273,7 @@ app.get("/:salary/:year?", async (c) => {
   const decoder = new TextDecoder("utf-8");
   const htmlSource = await Deno.readFile("index.html");
 
-  return c.html(
-    decoder
-      .decode(htmlSource)
-      .replace('<div id="app"></div>', `<div id="app">${htmlFragment}</div>`)
-  );
+  return c.html(decoder.decode(htmlSource).replace("{app}", htmlFragment));
 });
 
-serve(app.fetch);
+Deno.serve(app.fetch);
