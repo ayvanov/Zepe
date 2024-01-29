@@ -63,7 +63,7 @@ html {
   display: flex;
   margin: 0.5rem auto;
   justify-content: space-between;
-  max-width: 37rem;
+  max-width: 35rem;
   padding: 0.5rem 0;
 
   .year {
