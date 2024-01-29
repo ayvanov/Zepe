@@ -4,6 +4,8 @@ const urlsToCache = [
   "/public/style.css",
   "/public/cog.svg",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap",
+  "https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.2.8.nomodule.min.js",
+  "https://cdn.jsdelivr.net/npm/vanjs-ui@0.10.0/dist/van-ui.nomodule.min.js",
 ];
 
 self.addEventListener("install", function (e) {

@@ -199,7 +199,8 @@ app.use(
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
-const settingsButtonHtml = '<a id="settings-btn" href="#settings">&nbsp;</a>';
+const settingsButtonHtml =
+  '<a id="settings-btn" href="#" onclick="openModal();">&nbsp;</a>';
 
 app.get("/", async (c: Context) => {
   const decoder = new TextDecoder("utf-8");
@@ -258,7 +259,7 @@ app.get("/:salary/:year?", async (c: Context) => {
       </div>
     `;
   };
-  let htmlFragment = `<h1>${year}${settingsButtonHtml}</h1>`;
+  let htmlFragment = `<h1 class="header"><i></i><b class="year">${year}</b>${settingsButtonHtml}</h1>`;
   for (const year in data) {
     if (Object.prototype.hasOwnProperty.call(data, year)) {
       const yearData = data[year];
