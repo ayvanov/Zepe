@@ -148,3 +148,6 @@ html {
   font-weight: 600;
   line-height: 1.25rem;
 }
+body > #settings-btn {
+  margin: 8rem;
+}
