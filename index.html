@@ -1,72 +1,96 @@
 <!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <title>Zepe</title>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" type="image/png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/public/style.css" />
-    <link rel="manifest" href="/manifest.json" />
-    <script
-      type="text/javascript"
-      src="https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.2.8.nomodule.min.js"
-    ></script>
-    <script
-      type="text/javascript"
-      src="https://cdn.jsdelivr.net/npm/vanjs-ui@0.10.0/dist/van-ui.nomodule.min.js"
-    ></script>
-    <script>
-      if (typeof navigator.serviceWorker !== "undefined") {
-        navigator.serviceWorker.register("/sw.js").then((registration) => {
-          console.log("Service worker registration succeeded:", registration);
-        });
-      }
-    </script>
-  </head>
 
-  <body>
-    {app}
-    <script>
-      const salary = Number(localStorage.getItem("salary"));
-      console.log(salary);
-      if (location.pathname === "/" && salary > 0) {
-        location.href = "/" + salary;
-      }
+<head>
+  <title>Zepe</title>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="/favicon.ico" type="image/png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/public/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <script type="text/javascript"
+    src="https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.2.8.nomodule.min.js"></script>
+  <script type="text/javascript"
+    src="https://cdn.jsdelivr.net/npm/vanjs-ui@0.10.0/dist/van-ui.nomodule.min.js"></script>
+  <script>
+    if (typeof navigator.serviceWorker !== "undefined") {
+      navigator.serviceWorker.register("/sw.js").then((registration) => {
+        console.log("Service worker registration succeeded:", registration);
+      });
+    }
+  </script>
+</head>
 
-      function cacheSalary() {
-        localStorage.setItem("salary", document.querySelector("#salary").value);
-        location.href = "/";
-      }
+<body>
+  {app}
+  <script>
+    const closed = van.state(false);
 
-      function openModal() {
-        const closed = van.state(false);
-        const { div, p, button, label, input } = van.tags;
-        van.add(
-          document.body,
-          Modal(
-            { closed, modalClass: "settings" },
-            label({ for: "salary" }, "Зарплата"),
-            div(
-              input({ id: "salary", type: "number", autofocus: "autofocus" })
-            ),
-            div(
+    function locationHandler() {
+      const route = window.location.hash.substr(1);
+      if (route === "settings") {
+        closed.val = false;
+        openModal();
+      } else {
+        closed.val = true;
+      }
+    }
+    window.addEventListener("hashchange", locationHandler);
+    locationHandler();
+
+    const salary = Number(localStorage.getItem("salary"));
+    console.log(salary);
+    if (location.pathname === "/" && salary > 0) {
+      location.href = "/" + salary;
+    }
+
+    function cacheSalary() {
+      localStorage.setItem("salary", document.querySelector("#salary").value);
+      location.href = "/";
+    }
+
+    function openModal() {
+      const { div, p, button, label, input } = van.tags;
+      const value = Number(localStorage.getItem("salary")) || null;
+      van.add(
+        document.body,
+        Modal(
+          { closed, modalClass: "settings" },
+          label({ for: "salary" }, "Зарплата"),
+          div(
+            input({
+              id: "salary",
+              type: "number",
+              autofocus: "autofocus",
+              value,
+            })
+          ),
+          div(
+            {
+              style: "display: flex; justify-content: center;",
+            },
+            button(
               {
-                style: "display: flex; justify-content: center;",
-              },
-              button(
-                {
-                  class: "save-btn",
-                  onclick: () => {
-                    cacheSalary();
-                    closed.val = true;
-                  },
+                class: "save-btn",
+                id: "submit",
+                onclick: () => {
+                  cacheSalary();
+                  closed.val = true;
                 },
-                "Сохранить"
-              )
+              },
+              "Сохранить"
             )
           )
-        );
-      }
-    </script>
-  </body>
+        )
+      );
+      document.getElementById('salary').focus();
+      document.getElementById('salary').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          document.getElementById('submit').click();
+        }
+      });
+    }
+  </script>
+</body>
+
 </html>

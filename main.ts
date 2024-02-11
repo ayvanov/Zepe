@@ -199,8 +199,7 @@ app.use(
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
 
-const settingsButtonHtml =
-  '<a id="settings-btn" href="#" onclick="openModal();">&nbsp;</a>';
+const settingsButtonHtml = '<a id="settings-btn" href="#settings">&nbsp;</a>';
 
 app.get("/", async (c: Context) => {
   const decoder = new TextDecoder("utf-8");
