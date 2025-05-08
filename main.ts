@@ -50,7 +50,7 @@ class MonthMeta {
   get workdays() {
     return Array.from(this.#monthSlice).filter((n) => n === "0").length;
   }
-  get holydays() {
+  get holidays() {
     return Array.from(this.#monthSlice).filter((n) => n === "1").length;
   }
   get salaryPerDay() {
@@ -105,7 +105,7 @@ class MonthMeta {
       salary: this.salary,
       totalDays: this.total,
       workdays: this.workdays,
-      holydays: this.holydays,
+      holidays: this.holidays,
       salaryPerDay: this.salaryPerDay,
       advanceWorkdays: this.advanceWorkdays,
       advanceValue: this.advanceValue,
@@ -258,7 +258,7 @@ app.get("/:salary/:year?", async (c: Context) => {
       </div>
     `;
   };
-  let htmlFragment = `<h1 class="header"><i></i><b class="year">${year}</b>${settingsButtonHtml}</h1>`;
+  let htmlFragment = `<h1 class="header"><i id="s"></i><b class="year">${year}</b>${settingsButtonHtml}</h1>`;
   for (const year in data) {
     if (Object.prototype.hasOwnProperty.call(data, year)) {
       const yearData = data[year];

@@ -113,8 +113,8 @@ html {
 
 #settings-btn {
   display: inline-block;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   background: url("cog.svg");
   background-position: center;
   background-repeat: no-repeat;

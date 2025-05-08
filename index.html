@@ -39,13 +39,14 @@
     locationHandler();
 
     const salary = Number(localStorage.getItem("salary"));
-    console.log(salary);
+    //TODO render salary
     if (location.pathname === "/" && salary > 0) {
       location.href = "/" + salary;
     }
 
     function cacheSalary() {
-      localStorage.setItem("salary", document.querySelector("#salary").value);
+      const value = document.querySelector("#salary").value;
+      localStorage.setItem("salary", value);
       location.href = "/";
     }
 
