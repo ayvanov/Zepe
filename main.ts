@@ -4,14 +4,7 @@ import {
   serveStatic,
 } from "https://deno.land/x/hono@v3.1.2/middleware.ts";
 
-import {
-  dirname,
-  fromFileUrl,
-} from "https://deno.land/std@0.178.0/path/mod.ts";
 import { Context } from "https://deno.land/x/hono@v3.1.2/context.ts";
-
-const __filename = fromFileUrl(import.meta.url);
-const __dirname = dirname(fromFileUrl(import.meta.url));
 
 type DateValuePair = {
   value: number;
@@ -56,7 +49,7 @@ class MonthMeta {
   get salaryPerDay() {
     if (this.workdays === 0) return 0;
     return Format.round(
-      (this.salary / this.workdays) * MonthMeta.salaryMultiplier
+      (this.salary / this.workdays) * MonthMeta.salaryMultiplier,
     );
   }
   get advanceWorkdays() {
@@ -69,7 +62,7 @@ class MonthMeta {
     return new Date(
       this.year,
       this.monthNum - 1,
-      this.#monthSlice.slice(0, MonthMeta.advancePayDay).lastIndexOf("0") + 1
+      this.#monthSlice.slice(0, MonthMeta.advancePayDay).lastIndexOf("0") + 1,
     );
   }
   get restValue() {
@@ -80,7 +73,7 @@ class MonthMeta {
     return new Date(
       this.year,
       this.monthNum,
-      this.#nextMonthSlice.slice(0, MonthMeta.restPayDay).lastIndexOf("0") + 1
+      this.#nextMonthSlice.slice(0, MonthMeta.restPayDay).lastIndexOf("0") + 1,
     );
   }
 
@@ -89,7 +82,7 @@ class MonthMeta {
     nextMonthSlice: string,
     monthNum: number,
     salary: number = 0,
-    year: number
+    year: number,
   ) {
     this.#monthSlice = monthSlice;
     this.#nextMonthSlice = nextMonthSlice;
@@ -130,38 +123,17 @@ class ZepeCalc {
           yearDataSlices[Number(monthNum) + 1],
           Number(monthNum) + 1,
           salary,
-          year
-        )
+          year,
+        ),
       );
     }
     return { [year]: monthsMeta };
   }
 
   static async fetchYearSlices(year: number) {
-    let cachedYearData = { value: null };
-    let kv;
-    try {
-      kv = await Deno.openKv();
-      cachedYearData = await kv.get(["yearData", year]);
-    } catch (e) {
-      console.error("Deno KV is not available", e);
-    }
-    let yearData = "";
-    if (!cachedYearData.value) {
-      const url = `https://isdayoff.ru/api/getdata?year=${year}`;
-      const res = await fetch(url);
-      yearData = await res.text();
-      console.log("fetched from remote");
-      try {
-        await kv?.set(["yearData", year], yearData);
-        console.log("Cached to KV");
-      } catch (e) {
-        console.error("Deno KV is not available", e);
-      }
-    } else {
-      yearData = String(cachedYearData.value);
-      console.log("fetched from cache");
-    }
+    const url = `https://isdayoff.ru/api/getdata?year=${year}`;
+    const res = await fetch(url);
+    const yearData = await res.text();
     const nextYearFirstMonthUrl = `https://isdayoff.ru/api/getdata?year=${
       year + 1
     }&month=1`;
@@ -194,7 +166,7 @@ app.use("/icons/windows11/*", serveStatic({ root: "./" }));
 app.use("/public/*", serveStatic({ root: "./" }));
 app.use(
   "/favicon.ico",
-  serveStatic({ path: "./icons/android/android-launchericon-48-48.png" })
+  serveStatic({ path: "./icons/android/android-launchericon-48-48.png" }),
 );
 app.use("/manifest.json", serveStatic({ path: "./manifest.json" }));
 app.use("/sw.js", serveStatic({ path: "./sw.js" }));
@@ -205,7 +177,7 @@ app.get("/", async (c: Context) => {
   const decoder = new TextDecoder("utf-8");
   const htmlSource = await Deno.readFile("index.html");
   return c.html(
-    decoder.decode(htmlSource).replace("{app}", settingsButtonHtml)
+    decoder.decode(htmlSource).replace("{app}", settingsButtonHtml),
   );
 });
 
@@ -214,9 +186,8 @@ app.get("/api/:s/:y?", async (c: Context) =>
     await ZepeCalc.getYearData({
       salary: Number(c.req.param("s")),
       year: Number(c.req.param("y")),
-    })
-  )
-);
+    }),
+  ));
 
 app.get("/:salary/:year?", async (c: Context) => {
   const year = Number(c.req.param("year") || new Date().getFullYear());
@@ -229,15 +200,17 @@ app.get("/:salary/:year?", async (c: Context) => {
     const monthName = new Date(
       now.getFullYear(),
       props.monthNum - 1,
-      1
+      1,
     ).toLocaleDateString("ru-Ru", { month: "long" });
     return html`
       <div class="month">
         <h3>${monthName}</h3>
-        ${DateValueBlock({
-          date: props.advanceDate,
-          value: props.advanceValue,
-        })}
+        ${
+      DateValueBlock({
+        date: props.advanceDate,
+        value: props.advanceValue,
+      })
+    }
         ${DateValueBlock({ date: props.restDate, value: props.restValue })}
       </div>
     `;
@@ -258,7 +231,8 @@ app.get("/:salary/:year?", async (c: Context) => {
       </div>
     `;
   };
-  let htmlFragment = `<h1 class="header"><i id="s"></i><b class="year">${year}</b>${settingsButtonHtml}</h1>`;
+  let htmlFragment =
+    `<h1 class="header"><i id="s"></i><b class="year">${year}</b>${settingsButtonHtml}</h1>`;
   for (const year in data) {
     if (Object.prototype.hasOwnProperty.call(data, year)) {
       const yearData = data[year];
