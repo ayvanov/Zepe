@@ -79,7 +79,7 @@ fun CalculatorScreen(
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
 
-    val locale = remember { Locale("ru", "RU") }
+    val locale = remember { Locale.forLanguageTag("ru-RU") }
     
     // Оптимизация: Используем CompactDecimalFormat для компактного вывода (доступен с API 24)
     val moneyFormatter = remember(locale) {
