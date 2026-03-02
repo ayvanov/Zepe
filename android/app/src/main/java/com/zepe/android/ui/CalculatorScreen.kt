@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -81,11 +82,11 @@ fun CalculatorScreen(
     val locale = remember { Locale("ru", "RU") }
     
     // Оптимизация: Используем CompactDecimalFormat для компактного вывода (доступен с API 24)
-    val moneyFormatter = remember(locale) { 
+    val moneyFormatter = remember(locale) {
         CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
     }
     // Получаем символ валюты RUB
-    val currencySymbol = remember(locale) { 
+    val currencySymbol = remember(locale) {
         Currency.getInstance("RUB").getSymbol(locale)
     }
     
@@ -190,7 +191,20 @@ private fun MonthCard(
     monthNameFormatter: DateTimeFormatter,
     locale: Locale
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val isCurrentMonth = remember(month.monthNum, month.year) {
+        val now = java.time.LocalDate.now()
+        month.monthNum == now.monthValue && month.year == now.year
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                if (isCurrentMonth) MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
