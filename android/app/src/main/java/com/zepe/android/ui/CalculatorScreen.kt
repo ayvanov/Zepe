@@ -1,6 +1,9 @@
 package com.zepe.android.ui
 
+import android.icu.text.CompactDecimalFormat
+import android.icu.util.Currency
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,8 +35,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -42,7 +47,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zepe.android.data.repo.SettingsRepository
 import com.zepe.android.domain.model.MonthMeta
-import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -74,6 +78,20 @@ fun CalculatorScreen(
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
 
+    val locale = remember { Locale("ru", "RU") }
+    
+    // Оптимизация: Используем CompactDecimalFormat для компактного вывода (доступен с API 24)
+    val moneyFormatter = remember(locale) { 
+        CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
+    }
+    // Получаем символ валюты RUB
+    val currencySymbol = remember(locale) { 
+        Currency.getInstance("RUB").getSymbol(locale)
+    }
+    
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM, EEE", locale) }
+    val monthNameFormatter = remember(locale) { DateTimeFormatter.ofPattern("LLLL", locale) }
+
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
@@ -86,24 +104,35 @@ fun CalculatorScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(padding),
+            contentAlignment = Alignment.Center
         ) {
-            if (state.isLoading) {
-                CircularProgressIndicator()
-            }
-
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(state.months) { month ->
-                    MonthCard(month)
+                items(
+                    items = state.months,
+                    key = { it.monthNum }
+                ) { month ->
+                    MonthCard(
+                        month = month,
+                        moneyFormatter = moneyFormatter,
+                        currencySymbol = currencySymbol,
+                        dateFormatter = dateFormatter,
+                        monthNameFormatter = monthNameFormatter,
+                        locale = locale
+                    )
                 }
+            }
+
+            if (state.isLoading) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -153,44 +182,57 @@ fun CalculatorScreen(
 }
 
 @Composable
-private fun MonthCard(month: MonthMeta) {
+private fun MonthCard(
+    month: MonthMeta,
+    moneyFormatter: CompactDecimalFormat,
+    currencySymbol: String,
+    dateFormatter: DateTimeFormatter,
+    monthNameFormatter: DateTimeFormatter,
+    locale: Locale
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            val monthTitle = remember(month.monthNum, locale) {
+                val date = java.time.LocalDate.of(java.time.LocalDate.now().year, month.monthNum, 1)
+                date.format(monthNameFormatter).replaceFirstChar { 
+                    if (it.isLowerCase()) it.titlecase(locale) else it.toString() 
+                }
+            }
+
             Text(
-                text = monthName(month.monthNum),
+                text = monthTitle,
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
-            PaymentRow("Аванс: ${formatMoney(month.advanceValue)}", formatDate(month.advanceDate))
-            PaymentRow("Остаток: ${formatMoney(month.restValue)}", month.restDate?.let(::formatDate).orEmpty())
+            
+            PaymentRow(
+                valueText = "${moneyFormatter.format(month.advanceValue)} $currencySymbol",
+                dateText = month.advanceDate.format(dateFormatter)
+            )
+            
+            PaymentRow(
+                valueText = "${moneyFormatter.format(month.restValue)} $currencySymbol",
+                dateText = month.restDate?.format(dateFormatter).orEmpty()
+            )
         }
     }
 }
 
 @Composable
-private fun PaymentRow(labelText: String, date: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(labelText)
-        Text(date)
+private fun PaymentRow(valueText: String, dateText: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(), 
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = valueText,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+        )
+        Text(dateText, style = MaterialTheme.typography.bodySmall)
     }
-}
-
-private fun monthName(monthNum: Int): String {
-    val date = java.time.LocalDate.of(java.time.LocalDate.now().year, monthNum, 1)
-    val formatter = DateTimeFormatter.ofPattern("LLLL", Locale("ru", "RU"))
-    return date.format(formatter).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru", "RU")) else it.toString() }
-}
-
-private fun formatDate(date: java.time.LocalDate): String {
-    val formatter = DateTimeFormatter.ofPattern("d MMMM, EEE", Locale("ru", "RU"))
-    return date.format(formatter)
-}
-
-private fun formatMoney(value: Int): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale("ru", "RU"))
-    return formatter.format(value)
 }
