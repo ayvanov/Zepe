@@ -218,7 +218,7 @@ private fun MonthCard(
 
             Text(
                 text = monthTitle,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
@@ -245,8 +245,8 @@ private fun PaymentRow(valueText: String, dateText: String) {
     ) {
         Text(
             text = valueText,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
         )
-        Text(dateText, style = MaterialTheme.typography.bodySmall)
+        Text(dateText, style = MaterialTheme.typography.bodyLarge)
     }
 }

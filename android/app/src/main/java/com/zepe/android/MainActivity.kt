@@ -7,14 +7,17 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.zepe.android.ui.CalculatorScreen
+import com.zepe.android.ui.theme.ZepeTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            Surface(color = MaterialTheme.colorScheme.background) {
-                CalculatorScreen()
+            ZepeTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    CalculatorScreen()
+                }
             }
         }
     }
