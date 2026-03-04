@@ -37,10 +37,6 @@ class CalculatorViewModel(
         _uiState.update { it.copy(salaryInput = value, errorMessage = null) }
     }
 
-    fun onYearChange(value: String) {
-        _uiState.update { it.copy(yearInput = value, errorMessage = null) }
-    }
-
     fun calculate() {
         val salaryInput = uiState.value.salaryInput
         val salary = salaryInput.toIntOrNull()

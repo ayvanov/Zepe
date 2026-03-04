@@ -5,6 +5,7 @@ import android.icu.util.Currency
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,19 +36,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zepe.android.data.repo.SettingsRepository
 import com.zepe.android.domain.model.MonthMeta
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -77,15 +82,14 @@ fun CalculatorScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val sheetState = rememberModalBottomSheetState()
-    var showBottomSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val showBottomSheet = remember { mutableStateOf(false) }
 
     val locale = remember { Locale.forLanguageTag("ru-RU") }
     
-    // Оптимизация: Используем CompactDecimalFormat для компактного вывода (доступен с API 24)
     val moneyFormatter = remember(locale) {
         CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
     }
-    // Получаем символ валюты RUB
     val currencySymbol = remember(locale) {
         Currency.getInstance("RUB").getSymbol(locale)
     }
@@ -100,7 +104,7 @@ fun CalculatorScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showBottomSheet = true }) {
+            FloatingActionButton(onClick = { showBottomSheet.value = true }) {
                 Icon(Icons.Default.Edit, contentDescription = "Настройки")
             }
         }
@@ -114,8 +118,9 @@ fun CalculatorScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp, top = 0.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp)
             ) {
                 items(
                     items = state.months,
@@ -138,9 +143,9 @@ fun CalculatorScreen(
         }
     }
 
-    if (showBottomSheet) {
+    if (showBottomSheet.value) {
         ModalBottomSheet(
-            onDismissRequest = { showBottomSheet = false },
+            onDismissRequest = { showBottomSheet.value = false },
             sheetState = sheetState,
         ) {
             Column(
@@ -163,7 +168,11 @@ fun CalculatorScreen(
                     keyboardActions = KeyboardActions(
                         onDone = {
                             onCalculate()
-                            showBottomSheet = false
+                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                if (!sheetState.isVisible) {
+                                    showBottomSheet.value = false
+                                }
+                            }
                         }
                     )
                 )
@@ -171,7 +180,11 @@ fun CalculatorScreen(
                 Button(
                     onClick = {
                         onCalculate()
-                        showBottomSheet = false
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showBottomSheet.value = false
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -203,7 +216,10 @@ private fun MonthCard(
                 if (isCurrentMonth) MaterialTheme.colorScheme.primaryContainer
                 else
                     MaterialTheme.colorScheme.surfaceVariant
-        )
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -224,12 +240,14 @@ private fun MonthCard(
             )
             
             PaymentRow(
-                valueText = "${moneyFormatter.format(month.advanceValue)} $currencySymbol",
+                amountText = moneyFormatter.format(month.advanceValue),
+                currencySymbol = currencySymbol,
                 dateText = month.advanceDate.format(dateFormatter)
             )
             
             PaymentRow(
-                valueText = "${moneyFormatter.format(month.restValue)} $currencySymbol",
+                amountText = moneyFormatter.format(month.restValue),
+                currencySymbol = currencySymbol,
                 dateText = month.restDate?.format(dateFormatter).orEmpty()
             )
         }
@@ -237,14 +255,20 @@ private fun MonthCard(
 }
 
 @Composable
-private fun PaymentRow(valueText: String, dateText: String) {
+private fun PaymentRow(amountText: String, currencySymbol: String, dateText: String) {
     Row(
         modifier = Modifier.fillMaxWidth(), 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = valueText,
+            text = buildAnnotatedString {
+                append(amountText)
+                append(" ")
+                withStyle(style = SpanStyle(fontSize = MaterialTheme.typography.bodyLarge.fontSize, fontWeight = FontWeight.Bold)) {
+                    append(currencySymbol)
+                }
+            },
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
         )
         Text(dateText, style = MaterialTheme.typography.bodyLarge)
