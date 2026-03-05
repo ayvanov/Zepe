@@ -110,11 +110,11 @@ fun CalculatorScreen(
     val showBottomSheet = remember { mutableStateOf(false) }
 
     val locale = remember { Locale.forLanguageTag("ru-RU") }
-    
+
     val moneyFormatter = remember(locale) {
         CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
     }
-    
+
     val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM, EEE", locale) }
     val monthNameFormatter = remember(locale) { DateTimeFormatter.ofPattern("LLLL", locale) }
 
@@ -135,9 +135,9 @@ fun CalculatorScreen(
                 month.restDate?.let { PaymentEvent(it, month.restValue) }
             )
         }
-        .groupBy { it.date.year to it.date.monthValue }
-        .toList()
-        .sortedWith(compareBy({ it.first.first }, { it.first.second }))
+            .groupBy { it.date.year to it.date.monthValue }
+            .toList()
+            .sortedWith(compareBy({ it.first.first }, { it.first.second }))
     }
 
     Scaffold(
@@ -293,8 +293,8 @@ private fun MonthCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val monthTitle = remember(monthDate, locale) {
-                    monthDate.format(monthNameFormatter).replaceFirstChar { 
-                        if (it.isLowerCase()) it.titlecase(locale) else it.toString() 
+                    monthDate.format(monthNameFormatter).replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(locale) else it.toString()
                     }
                 }
 
@@ -310,7 +310,7 @@ private fun MonthCard(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.End
                 )
-                
+
                 events.forEach { event ->
                     PaymentRow(
                         amountText = moneyFormatter.format(event.amount),
@@ -324,7 +324,7 @@ private fun MonthCard(
                     CalendarGrid(monthMeta, events, locale)
                 }
             }
-            
+
             if (showDivider && !isExpanded) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -341,9 +341,9 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
     val yearMonth = YearMonth.of(monthMeta.year, monthMeta.monthNum)
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = LocalDate.of(monthMeta.year, monthMeta.monthNum, 1)
-    
+
     // DayOfWeek.value: 1 (Mon) to 7 (Sun)
-    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value 
+    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value
     val emptyCellsBefore = firstDayOfWeek - 1
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -363,7 +363,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
 
         // Days grid
@@ -376,13 +376,13 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                 repeat(7) { colIndex ->
                     val cellIndex = rowIndex * 7 + colIndex
                     val day = cellIndex - emptyCellsBefore + 1
-                    
+
                     if (cellIndex < emptyCellsBefore || day > daysInMonth) {
                         Spacer(modifier = Modifier.weight(1f))
                     } else {
                         val isDayOff = monthMeta.isDayOff(day)
                         val isPaymentDay = events.any { it.date.dayOfMonth == day }
-                        
+
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -393,7 +393,8 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
-                                        .background(
+                                        .border(
+                                            width = 1.dp,
                                             color = vibrantBlue,
                                             shape = CircleShape
                                         )
@@ -404,7 +405,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                                         .size(28.dp)
                                         .border(
                                             width = 1.dp,
-                                            color = Color.Red.copy(alpha = 0.4f),
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             shape = CircleShape
                                         )
                                 )
@@ -416,7 +417,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                                     fontSize = 12.sp
                                 ),
                                 color = when {
-                                    isPaymentDay -> Color.White
+                                    isPaymentDay -> vibrantBlue
                                     else -> MaterialTheme.colorScheme.onSurface
                                 }
                             )
@@ -430,18 +431,18 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
 
 @Composable
 private fun PaymentRow(
-    amountText: String, 
+    amountText: String,
     dateText: String,
     isPast: Boolean = false
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         val baseColor = MaterialTheme.colorScheme.onSurface
         val baseDateColor = MaterialTheme.colorScheme.onSurfaceVariant
-        
+
         val color = if (isPast) baseColor.copy(alpha = 0.3f) else baseColor
         val dateColor = if (isPast) baseDateColor.copy(alpha = 0.3f) else baseDateColor
 
