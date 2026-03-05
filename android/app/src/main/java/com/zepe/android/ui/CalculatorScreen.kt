@@ -1,7 +1,6 @@
 package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
-import android.icu.util.Currency
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -39,22 +40,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zepe.android.data.repo.SettingsRepository
 import com.zepe.android.domain.model.MonthMeta
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private data class PaymentEvent(
+    val date: LocalDate,
+    val amount: Int
+)
 
 @Composable
 fun CalculatorScreen() {
@@ -90,9 +96,6 @@ fun CalculatorScreen(
     val moneyFormatter = remember(locale) {
         CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
     }
-    val currencySymbol = remember(locale) {
-        Currency.getInstance("RUB").getSymbol(locale)
-    }
     
     val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM, EEE", locale) }
     val monthNameFormatter = remember(locale) { DateTimeFormatter.ofPattern("LLLL", locale) }
@@ -101,13 +104,26 @@ fun CalculatorScreen(
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
 
+    val groupedPayments = remember(state.months) {
+        state.months.flatMap { month ->
+            listOfNotNull(
+                PaymentEvent(month.advanceDate, month.advanceValue),
+                month.restDate?.let { PaymentEvent(it, month.restValue) }
+            )
+        }
+        .groupBy { it.date.year to it.date.monthValue }
+        .toList()
+        .sortedWith(compareBy({ it.first.first }, { it.first.second }))
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showBottomSheet.value = true }) {
                 Icon(Icons.Default.Edit, contentDescription = "Настройки")
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     ) { padding ->
         Box(
             modifier = Modifier
@@ -118,21 +134,33 @@ fun CalculatorScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp, top = 0.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
             ) {
-                items(
-                    items = state.months,
-                    key = { it.monthNum }
-                ) { month ->
+                itemsIndexed(
+                    items = groupedPayments,
+                    key = { _, group -> "${group.first.first}-${group.first.second}" }
+                ) { index, (key, events) ->
+                    val isFirst = index == 0
+                    val isLast = index == groupedPayments.lastIndex
+                    val shape = when {
+                        isFirst && isLast -> RoundedCornerShape(16.dp)
+                        isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                        isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+                        else -> RectangleShape
+                    }
+
+                    val groupDate = LocalDate.of(key.first, key.second, 1)
+
                     MonthCard(
-                        month = month,
+                        monthDate = groupDate,
+                        events = events,
                         moneyFormatter = moneyFormatter,
-                        currencySymbol = currencySymbol,
                         dateFormatter = dateFormatter,
                         monthNameFormatter = monthNameFormatter,
-                        locale = locale
+                        locale = locale,
+                        shape = shape,
+                        showDivider = !isLast
                     )
                 }
             }
@@ -197,80 +225,104 @@ fun CalculatorScreen(
 
 @Composable
 private fun MonthCard(
-    month: MonthMeta,
+    monthDate: LocalDate,
+    events: List<PaymentEvent>,
     moneyFormatter: CompactDecimalFormat,
-    currencySymbol: String,
     dateFormatter: DateTimeFormatter,
     monthNameFormatter: DateTimeFormatter,
-    locale: Locale
+    locale: Locale,
+    shape: Shape,
+    showDivider: Boolean
 ) {
-    val isCurrentMonth = remember(month.monthNum, month.year) {
-        val now = java.time.LocalDate.now()
-        month.monthNum == now.monthValue && month.year == now.year
-    }
+    val now = remember { LocalDate.now() }
+    val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor =
-                if (isCurrentMonth) MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isCurrentMonth) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 0.dp
         ),
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val monthTitle = remember(month.monthNum, locale) {
-                val date = java.time.LocalDate.of(java.time.LocalDate.now().year, month.monthNum, 1)
-                date.format(monthNameFormatter).replaceFirstChar { 
-                    if (it.isLowerCase()) it.titlecase(locale) else it.toString() 
+        Column {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val monthTitle = remember(monthDate, locale) {
+                    monthDate.format(monthNameFormatter).replaceFirstChar { 
+                        if (it.isLowerCase()) it.titlecase(locale) else it.toString() 
+                    }
+                }
+
+                val isPastMonth = monthDate.isBefore(now.withDayOfMonth(1))
+                val titleAlpha = if (isPastMonth) 0.6f else 1f
+
+                Text(
+                    text = monthTitle,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End
+                )
+                
+                events.forEach { event ->
+                    PaymentRow(
+                        amountText = moneyFormatter.format(event.amount),
+                        dateText = event.date.format(dateFormatter),
+                        isPast = event.date.isBefore(now)
+                    )
                 }
             }
-
-            Text(
-                text = monthTitle,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
             
-            PaymentRow(
-                amountText = moneyFormatter.format(month.advanceValue),
-                currencySymbol = currencySymbol,
-                dateText = month.advanceDate.format(dateFormatter)
-            )
-            
-            PaymentRow(
-                amountText = moneyFormatter.format(month.restValue),
-                currencySymbol = currencySymbol,
-                dateText = month.restDate?.format(dateFormatter).orEmpty()
-            )
+            if (showDivider) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun PaymentRow(amountText: String, currencySymbol: String, dateText: String) {
+private fun PaymentRow(
+    amountText: String, 
+    dateText: String,
+    isPast: Boolean = false
+) {
     Row(
         modifier = Modifier.fillMaxWidth(), 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val baseColor = MaterialTheme.colorScheme.onSurface
+        val baseDateColor = MaterialTheme.colorScheme.onSurfaceVariant
+        
+        val color = if (isPast) baseColor.copy(alpha = 0.3f) else baseColor
+        val dateColor = if (isPast) baseDateColor.copy(alpha = 0.3f) else baseDateColor
+
         Text(
-            text = buildAnnotatedString {
-                append(amountText)
-                append(" ")
-                withStyle(style = SpanStyle(fontSize = MaterialTheme.typography.bodyLarge.fontSize, fontWeight = FontWeight.Bold)) {
-                    append(currencySymbol)
-                }
-            },
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            text = amountText,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
         )
-        Text(dateText, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = dateText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = dateColor
+        )
     }
 }
