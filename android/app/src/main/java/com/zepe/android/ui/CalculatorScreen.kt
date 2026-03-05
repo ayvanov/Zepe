@@ -44,10 +44,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -116,6 +118,8 @@ fun CalculatorScreen(
     val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM, EEE", locale) }
     val monthNameFormatter = remember(locale) { DateTimeFormatter.ofPattern("LLLL", locale) }
 
+    val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
@@ -172,6 +176,8 @@ fun CalculatorScreen(
 
                     val groupDate = LocalDate.of(key.first, key.second, 1)
                     val monthMeta = monthMetaMap[key]
+                    val groupKey = "${key.first}-${key.second}"
+                    val isExpanded = expandedStates[groupKey] ?: false
 
                     MonthCard(
                         monthDate = groupDate,
@@ -182,7 +188,9 @@ fun CalculatorScreen(
                         monthNameFormatter = monthNameFormatter,
                         locale = locale,
                         shape = shape,
-                        showDivider = !isLast
+                        showDivider = !isLast,
+                        isExpanded = isExpanded,
+                        onExpandToggle = { expandedStates[groupKey] = !isExpanded }
                     )
                 }
             }
@@ -255,17 +263,18 @@ private fun MonthCard(
     monthNameFormatter: DateTimeFormatter,
     locale: Locale,
     shape: Shape,
-    showDivider: Boolean
+    showDivider: Boolean,
+    isExpanded: Boolean,
+    onExpandToggle: () -> Unit
 ) {
     val now = remember { LocalDate.now() }
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
-    var isExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .clickable { isExpanded = !isExpanded },
+            .clickable { onExpandToggle() },
         shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentMonth) {
