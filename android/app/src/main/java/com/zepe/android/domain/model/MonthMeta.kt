@@ -23,7 +23,7 @@ class MonthMeta(
         get() = monthSlice.length
 
     val workdays: Int
-        get() = monthSlice.count { it == '0' }
+        get() = monthSlice.count { it == '0' || it == '2' }
 
     val holidays: Int
         get() = monthSlice.count { it == '1' }
@@ -35,14 +35,14 @@ class MonthMeta(
         }
 
     val advanceWorkdays: Int
-        get() = advanceSlice.count { it == '0' }
+        get() = advanceSlice.count { it == '0' || it == '2' }
 
     val advanceValue: Int
         get() = (salaryPerDay * advanceWorkdays.toDouble()).roundToInt()
 
     val advanceDate: LocalDate
         get() {
-            val day = monthSlice.take(advancePayDay).lastIndexOf('0') + 1
+            val day = monthSlice.take(advancePayDay).lastIndexOfAny(charArrayOf('0', '2')) + 1
             return LocalDate.of(year, monthNum, day.coerceAtLeast(1))
         }
 
@@ -52,9 +52,11 @@ class MonthMeta(
     val restDate: LocalDate?
         get() {
             if (nextMonthSlice.isEmpty()) return null
-            val day = nextMonthSlice.take(restPayDay).lastIndexOf('0') + 1
+            val day = nextMonthSlice.take(restPayDay).lastIndexOfAny(charArrayOf('0', '2')) + 1
             return LocalDate.of(year, monthNum, 1).plusMonths(1).withDayOfMonth(day.coerceAtLeast(1))
         }
 
     fun isDayOff(day: Int): Boolean = monthSlice.getOrNull(day - 1) == '1'
+    
+    fun isPreHoliday(day: Int): Boolean = monthSlice.getOrNull(day - 1) == '2'
 }

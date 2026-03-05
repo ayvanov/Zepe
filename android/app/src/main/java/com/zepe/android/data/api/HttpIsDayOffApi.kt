@@ -8,7 +8,7 @@ import java.net.URL
 class HttpIsDayOffApi : IsDayOffApi {
     override suspend fun getData(year: Int, month: Int?): String = withContext(Dispatchers.IO) {
         val monthQuery = if (month == null) "" else "&month=$month"
-        val endpoint = "https://isdayoff.ru/api/getdata?year=$year$monthQuery"
+        val endpoint = "https://isdayoff.ru/api/getdata?pre=1&year=$year$monthQuery"
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 10_000

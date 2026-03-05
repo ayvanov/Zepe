@@ -325,7 +325,8 @@ private fun MonthCard(
                 }
             }
 
-            if (showDivider && !isExpanded) {
+            // Убираем бордер (дивайдер) у текущего месяца
+            if (showDivider && !isCurrentMonth) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
@@ -370,6 +371,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
         val totalCells = daysInMonth + emptyCellsBefore
         val rows = (totalCells + 6) / 7
         val vibrantBlue = Color(0xFF007AFF)
+        val orangeColor = Color(0xFFFF9500)
 
         repeat(rows) { rowIndex ->
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -381,6 +383,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                         Spacer(modifier = Modifier.weight(1f))
                     } else {
                         val isDayOff = monthMeta.isDayOff(day)
+                        val isPreHoliday = monthMeta.isPreHoliday(day)
                         val isPaymentDay = events.any { it.date.dayOfMonth == day }
 
                         Box(
@@ -399,13 +402,23 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                                             shape = CircleShape
                                         )
                                 )
+                            } else if (isPreHoliday) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .border(
+                                            width = 1.dp,
+                                            color = orangeColor,
+                                            shape = CircleShape
+                                        )
+                                )
                             } else if (isDayOff) {
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .border(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                             shape = CircleShape
                                         )
                                 )
