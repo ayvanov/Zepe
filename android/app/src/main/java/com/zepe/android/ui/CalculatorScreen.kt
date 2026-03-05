@@ -2,7 +2,6 @@ package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,7 +49,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zepe.android.data.repo.SettingsRepository
 import com.zepe.android.domain.model.MonthMeta
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -119,6 +119,7 @@ fun CalculatorScreen(
     val monthNameFormatter = remember(locale) { DateTimeFormatter.ofPattern("LLLL", locale) }
 
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
@@ -149,54 +150,72 @@ fun CalculatorScreen(
         },
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
-            ) {
-                itemsIndexed(
-                    items = groupedPayments,
-                    key = { _, group -> "${group.first.first}-${group.first.second}" }
-                ) { index, (key, events) ->
-                    val isFirst = index == 0
-                    val isLast = index == groupedPayments.lastIndex
-                    val shape = when {
-                        isFirst && isLast -> RoundedCornerShape(16.dp)
-                        isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                        isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-                        else -> RectangleShape
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isRefreshing = true
+                    val anyExpanded = expandedStates.values.any { it }
+                    if (anyExpanded) {
+                        expandedStates.clear()
+                    } else {
+                        groupedPayments.forEach { (key, _) ->
+                            expandedStates["${key.first}-${key.second}"] = true
+                        }
                     }
-
-                    val groupDate = LocalDate.of(key.first, key.second, 1)
-                    val monthMeta = monthMetaMap[key]
-                    val groupKey = "${key.first}-${key.second}"
-                    val isExpanded = expandedStates[groupKey] ?: false
-
-                    MonthCard(
-                        monthDate = groupDate,
-                        events = events,
-                        monthMeta = monthMeta,
-                        moneyFormatter = moneyFormatter,
-                        dateFormatter = dateFormatter,
-                        monthNameFormatter = monthNameFormatter,
-                        locale = locale,
-                        shape = shape,
-                        showDivider = !isLast,
-                        isExpanded = isExpanded,
-                        onExpandToggle = { expandedStates[groupKey] = !isExpanded }
-                    )
+                    delay(500)
+                    isRefreshing = false
                 }
-            }
+            },
+            modifier = Modifier.padding(padding)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+                ) {
+                    itemsIndexed(
+                        items = groupedPayments,
+                        key = { _, group -> "${group.first.first}-${group.first.second}" }
+                    ) { index, (key, events) ->
+                        val isFirst = index == 0
+                        val isLast = index == groupedPayments.lastIndex
+                        val shape = when {
+                            isFirst && isLast -> RoundedCornerShape(16.dp)
+                            isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                            isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+                            else -> RectangleShape
+                        }
 
-            if (state.isLoading) {
-                CircularProgressIndicator()
+                        val groupDate = LocalDate.of(key.first, key.second, 1)
+                        val monthMeta = monthMetaMap[key]
+                        val groupKey = "${key.first}-${key.second}"
+                        val isExpanded = expandedStates[groupKey] ?: false
+
+                        MonthCard(
+                            monthDate = groupDate,
+                            events = events,
+                            monthMeta = monthMeta,
+                            moneyFormatter = moneyFormatter,
+                            dateFormatter = dateFormatter,
+                            monthNameFormatter = monthNameFormatter,
+                            locale = locale,
+                            shape = shape,
+                            showDivider = !isLast,
+                            isExpanded = isExpanded,
+                            onExpandToggle = { expandedStates[groupKey] = !isExpanded }
+                        )
+                    }
+                }
+
+                if (state.isLoading) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }
