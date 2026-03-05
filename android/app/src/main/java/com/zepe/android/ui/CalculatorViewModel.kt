@@ -52,8 +52,7 @@ class CalculatorViewModel(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             runCatching {
                 calculator.getYearData(year, salary)
-            }.onSuccess { data ->
-                val months = data[year] ?: data.values.firstOrNull().orEmpty()
+            }.onSuccess { months ->
                 _uiState.update { it.copy(isLoading = false, months = months) }
             }.onFailure {
                 _uiState.update {

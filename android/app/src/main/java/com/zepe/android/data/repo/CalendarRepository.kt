@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.zepe.android.data.api.IsDayOffApi
 import kotlinx.coroutines.flow.first
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.YearMonth
 
 private val Context.calendarDataStore by preferencesDataStore(name = "calendar_cache")
@@ -21,10 +23,30 @@ class CalendarRepository(
 
     suspend fun fetchYearSlices(year: Int): List<String> {
         val yearData = getOrFetch(year.toString()) { api.getData(year) }
-        val nextJanuary = getOrFetch("${year + 1}_1") { api.getData(year + 1, 1) }
+        var nextJanuary = getOrFetch("${year + 1}_1") { api.getData(year + 1, 1) }
 
         if (yearData.isEmpty()) {
             throw IllegalStateException("Failed to fetch Year Data")
+        }
+
+        // Если API вернул только нули для следующего января (нет официальных данных),
+        // используем структуру праздников текущего года + стандартные выходные
+        if (nextJanuary.isNotEmpty() && nextJanuary.all { it == '0' }) {
+            val currentJan = yearData.take(31)
+            val holidaysAtStart = currentJan.takeWhile { it == '1' }.length
+            
+            val nextJanBuilt = StringBuilder()
+            val nextYear = year + 1
+            for (day in 1..31) {
+                if (day <= holidaysAtStart) {
+                    nextJanBuilt.append('1')
+                } else {
+                    val date = LocalDate.of(nextYear, 1, day)
+                    val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
+                    nextJanBuilt.append(if (isWeekend) '1' else '0')
+                }
+            }
+            nextJanuary = nextJanBuilt.toString()
         }
 
         val slices = mutableListOf<String>()

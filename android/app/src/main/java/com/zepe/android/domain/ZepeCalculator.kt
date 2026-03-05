@@ -6,26 +6,34 @@ import com.zepe.android.domain.model.MonthMeta
 class ZepeCalculator(
     private val calendarRepository: CalendarRepository,
 ) {
-    suspend fun getYearData(year: Int, salary: Int): Map<Int, List<MonthMeta>> {
+    suspend fun getYearData(year: Int, salary: Int): List<MonthMeta> {
         val actualYear = if (year == 0) java.time.LocalDate.now().year else year
         val slices = calendarRepository.fetchYearSlices(actualYear)
-        val months = buildMonths(actualYear, salary, slices)
-        return mapOf(actualYear to months)
-    }
 
-    fun buildMonths(year: Int, salary: Int, slices: List<String>): List<MonthMeta> {
         val result = mutableListOf<MonthMeta>()
+
+        // 12 месяцев текущего года
         for (i in 0 until 12) {
-            val monthSlice = slices.getOrElse(i) { "" }
-            val nextMonthSlice = slices.getOrElse(i + 1) { "" }
             result += MonthMeta(
-                monthSlice = monthSlice,
-                nextMonthSlice = nextMonthSlice,
+                monthSlice = slices.getOrElse(i) { "" },
+                nextMonthSlice = slices.getOrElse(i + 1) { "" }, // Для декабря берется срез января
                 monthNum = i + 1,
                 salary = salary,
-                year = year,
+                year = actualYear,
             )
         }
+
+        // Январь следующего года
+        if (slices.size > 12) {
+            result += MonthMeta(
+                monthSlice = slices[12],
+                nextMonthSlice = "", // Данных за февраль нет
+                monthNum = 1,
+                salary = salary,
+                year = actualYear + 1,
+            )
+        }
+
         return result
     }
 }
