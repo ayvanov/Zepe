@@ -1,5 +1,6 @@
 package com.zepe.android.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 
 class CalculatorViewModel(
     private val settingsRepository: SettingsRepository,
-    private val calculator: ZepeCalculator = ZepeCalculator(CalendarRepository(HttpIsDayOffApi())),
+    private val calculator: ZepeCalculator,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CalculatorUiState())
     val uiState: StateFlow<CalculatorUiState> = _uiState.asStateFlow()
@@ -66,9 +67,11 @@ class CalculatorViewModel(
     }
 
     companion object {
-        fun Factory(settingsRepository: SettingsRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun Factory(context: Context, settingsRepository: SettingsRepository): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                CalculatorViewModel(settingsRepository)
+                val calendarRepo = CalendarRepository(context, HttpIsDayOffApi())
+                val calculator = ZepeCalculator(calendarRepo)
+                CalculatorViewModel(settingsRepository, calculator)
             }
         }
     }

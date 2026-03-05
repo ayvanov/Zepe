@@ -55,4 +55,6 @@ class MonthMeta(
             val day = nextMonthSlice.take(restPayDay).lastIndexOf('0') + 1
             return LocalDate.of(year, monthNum, 1).plusMonths(1).withDayOfMonth(day.coerceAtLeast(1))
         }
+
+    fun isDayOff(day: Int): Boolean = monthSlice.getOrNull(day - 1) == '1'
 }
