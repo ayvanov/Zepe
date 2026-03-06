@@ -224,6 +224,21 @@ fun CalculatorScreen(
                             isExpanded = isExpanded,
                             onExpandToggle = { expandedStates[groupKey] = !isExpanded }
                         )
+
+                        // Добавляем карточку ИТОГО ЗА ГОД после декабря текущего года
+                        val now = LocalDate.now()
+                        if (groupDate.monthValue == 12 && groupDate.year == now.year) {
+                            val yearTotal = groupedPayments
+                                .filter { it.first.first == now.year }
+                                .flatMap { it.second }
+                                .sumOf { it.amount }
+                            
+                            YearTotalCard(
+                                year = now.year,
+                                totalAmount = yearTotal,
+                                moneyFormatter = moneyFormatter
+                            )
+                        }
                     }
                 }
 
@@ -283,6 +298,46 @@ fun CalculatorScreen(
                     Text("Рассчитать")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun YearTotalCard(
+    year: Int,
+    totalAmount: Int,
+    moneyFormatter: CompactDecimalFormat
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(),
+        shape = RectangleShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Итого",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            )
+            Text(
+                text = moneyFormatter.format(totalAmount),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            )
         }
     }
 }
@@ -376,7 +431,7 @@ private fun MonthCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "ИТОГО",
+                                text = "Итого",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
