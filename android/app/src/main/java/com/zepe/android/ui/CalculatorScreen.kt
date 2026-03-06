@@ -2,6 +2,7 @@ package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -139,6 +140,17 @@ fun CalculatorScreen(
             .groupBy { it.date.year to it.date.monthValue }
             .toList()
             .sortedWith(compareBy({ it.first.first }, { it.first.second }))
+    }
+
+    // Раскрываем текущий месяц при загрузке данных
+    LaunchedEffect(groupedPayments) {
+        if (groupedPayments.isNotEmpty() && expandedStates.isEmpty()) {
+            val now = LocalDate.now()
+            val currentMonthKey = "${now.year}-${now.monthValue}"
+            if (groupedPayments.any { "${it.first.first}-${it.first.second}" == currentMonthKey }) {
+                expandedStates[currentMonthKey] = true
+            }
+        }
     }
 
     Scaffold(
@@ -289,6 +301,11 @@ private fun MonthCard(
     val now = remember { LocalDate.now() }
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
 
+    val fontSizeMultiplier by animateFloatAsState(
+        targetValue = if (isCurrentMonth && isExpanded) 1.2f else 1f,
+        label = "fontSizeAnimation"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,9 +329,10 @@ private fun MonthCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val monthTitle = remember(monthDate, locale) {
-                    monthDate.format(monthNameFormatter).replaceFirstChar {
+                    val baseTitle = monthDate.format(monthNameFormatter).replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(locale) else it.toString()
                     }
+                    if (monthDate.year > now.year) "$baseTitle ${monthDate.year}" else baseTitle
                 }
 
                 val isPastMonth = monthDate.isBefore(now.withDayOfMonth(1))
@@ -324,7 +342,8 @@ private fun MonthCard(
                     text = monthTitle,
                     style = MaterialTheme.typography.labelLarge.copy(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = MaterialTheme.typography.labelLarge.fontSize * fontSizeMultiplier
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.End
@@ -334,7 +353,8 @@ private fun MonthCard(
                     PaymentRow(
                         amountText = moneyFormatter.format(event.amount),
                         dateText = event.date.format(dateFormatter),
-                        isPast = event.date.isBefore(now)
+                        isPast = event.date.isBefore(now),
+                        fontSizeMultiplier = fontSizeMultiplier
                     )
                 }
 
@@ -465,7 +485,8 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
 private fun PaymentRow(
     amountText: String,
     dateText: String,
-    isPast: Boolean = false
+    isPast: Boolean = false,
+    fontSizeMultiplier: Float = 1f
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -481,13 +502,16 @@ private fun PaymentRow(
         Text(
             text = amountText,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = color
+                fontWeight = FontWeight.Normal,
+                color = color,
+                fontSize = MaterialTheme.typography.bodyLarge.fontSize * fontSizeMultiplier
             )
         )
         Text(
             text = dateText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = MaterialTheme.typography.bodyMedium.fontSize * fontSizeMultiplier
+            ),
             color = dateColor
         )
     }
