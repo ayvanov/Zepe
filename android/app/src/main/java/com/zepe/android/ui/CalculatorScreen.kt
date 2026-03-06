@@ -3,6 +3,7 @@ package com.zepe.android.ui
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -237,6 +239,7 @@ fun CalculatorScreen(
             onDismissRequest = { showBottomSheet.value = false },
             sheetState = sheetState,
         ) {
+            @Suppress("DEPRECATION")
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -302,7 +305,7 @@ private fun MonthCard(
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
 
     val fontSizeMultiplier by animateFloatAsState(
-        targetValue = if (isCurrentMonth && isExpanded) 1.2f else 1f,
+        targetValue = if (isExpanded) 1.2f else 1f,
         label = "fontSizeAnimation"
     )
 
@@ -358,9 +361,37 @@ private fun MonthCard(
                     )
                 }
 
-                if (isExpanded && monthMeta != null) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CalendarGrid(monthMeta, events, locale)
+                if (isExpanded) {
+                    if (monthMeta != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CalendarGrid(monthMeta, events, locale)
+                    }
+                    
+                    if (events.isNotEmpty()) {
+                        val totalAmount = events.sumOf { it.amount }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "ИТОГО",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Text(
+                                text = moneyFormatter.format(totalAmount),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = MaterialTheme.typography.titleMedium.fontSize * fontSizeMultiplier
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
