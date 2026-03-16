@@ -2,10 +2,6 @@ package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,6 +30,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -51,7 +48,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,6 +73,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.abs
 
 private data class PaymentEvent(
     val date: LocalDate,
@@ -142,17 +139,6 @@ fun CalculatorScreen(
             .groupBy { it.date.year to it.date.monthValue }
             .toList()
             .sortedWith(compareBy({ it.first.first }, { it.first.second }))
-    }
-
-    // Раскрываем текущий месяц при загрузке данных
-    LaunchedEffect(groupedPayments) {
-        if (groupedPayments.isNotEmpty() && expandedStates.isEmpty()) {
-            val now = LocalDate.now()
-            val currentMonthKey = "${now.year}-${now.monthValue}"
-            if (groupedPayments.any { "${it.first.first}-${it.first.second}" == currentMonthKey }) {
-                expandedStates[currentMonthKey] = true
-            }
-        }
     }
 
     Scaffold(
@@ -234,7 +220,6 @@ fun CalculatorScreen(
                                 .sumOf { it.amount }
                             
                             YearTotalCard(
-                                year = now.year,
                                 totalAmount = yearTotal,
                                 moneyFormatter = moneyFormatter
                             )
@@ -304,16 +289,21 @@ fun CalculatorScreen(
 
 @Composable
 private fun YearTotalCard(
-    year: Int,
     totalAmount: Int,
     moneyFormatter: CompactDecimalFormat
 ) {
+    val amountColor = when {
+        totalAmount > 0 -> Color(0xFF2E7D32)
+        totalAmount < 0 -> Color.Red
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth(),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -321,21 +311,15 @@ private fun YearTotalCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val sign = if (totalAmount > 0) "+" else if (totalAmount < 0) "-" else ""
             Text(
-                text = "Итого",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            )
-            Text(
-                text = moneyFormatter.format(totalAmount),
-                style = MaterialTheme.typography.titleLarge.copy(
+                text = "$sign${moneyFormatter.format(abs(totalAmount))}",
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    color = amountColor
                 )
             )
         }
@@ -359,16 +343,10 @@ private fun MonthCard(
     val now = remember { LocalDate.now() }
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
 
-    val fontSizeMultiplier by animateFloatAsState(
-        targetValue = if (isExpanded) 1.2f else 1f,
-        label = "fontSizeAnimation"
-    )
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .clickable { onExpandToggle() },
+            .clip(shape),
         shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentMonth) {
@@ -396,57 +374,70 @@ private fun MonthCard(
                 val isPastMonth = monthDate.isBefore(now.withDayOfMonth(1))
                 val titleAlpha = if (isPastMonth) 0.6f else 1f
 
-                Text(
-                    text = monthTitle,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = MaterialTheme.typography.labelLarge.fontSize * fontSizeMultiplier
-                    ),
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
-                )
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = monthTitle,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
+                            fontWeight = FontWeight.Bold
+                        ),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    IconButton(
+                        onClick = onExpandToggle,
+                        modifier = Modifier.size(24.dp).padding(start = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Показать календарь",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 events.forEach { event ->
                     PaymentRow(
                         amountText = moneyFormatter.format(event.amount),
                         dateText = event.date.format(dateFormatter),
-                        isPast = event.date.isBefore(now),
-                        fontSizeMultiplier = fontSizeMultiplier
+                        isPast = event.date.isBefore(now)
                     )
                 }
 
-                if (isExpanded) {
-                    if (monthMeta != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        CalendarGrid(monthMeta, events, locale)
+                if (events.isNotEmpty()) {
+                    val totalAmount = events.sumOf { it.amount }
+                    val amountColor = when {
+                        totalAmount > 0 -> Color(0xFF2E7D32)
+                        totalAmount < 0 -> Color.Red
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
+                    val sign = if (totalAmount > 0) "+" else if (totalAmount < 0) "-" else ""
                     
-                    if (events.isNotEmpty()) {
-                        val totalAmount = events.sumOf { it.amount }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Итого",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "$sign${moneyFormatter.format(abs(totalAmount))}",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = amountColor
                             )
-                            Text(
-                                text = moneyFormatter.format(totalAmount),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = MaterialTheme.typography.titleMedium.fontSize * fontSizeMultiplier
-                                )
-                            )
-                        }
+                        )
                     }
+                }
+
+                if (isExpanded && monthMeta != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CalendarGrid(monthMeta, locale)
                 }
             }
 
@@ -463,7 +454,7 @@ private fun MonthCard(
 }
 
 @Composable
-private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, locale: Locale) {
+private fun CalendarGrid(monthMeta: MonthMeta, locale: Locale) {
     val yearMonth = YearMonth.of(monthMeta.year, monthMeta.monthNum)
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = LocalDate.of(monthMeta.year, monthMeta.monthNum, 1)
@@ -495,8 +486,6 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
         // Days grid
         val totalCells = daysInMonth + emptyCellsBefore
         val rows = (totalCells + 6) / 7
-        val vibrantBlue = Color(0xFF007AFF)
-        val orangeColor = Color(0xFFFF9500)
 
         repeat(rows) { rowIndex ->
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -509,7 +498,6 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                     } else {
                         val isDayOff = monthMeta.isDayOff(day)
                         val isPreHoliday = monthMeta.isPreHoliday(day)
-                        val isPaymentDay = events.any { it.date.dayOfMonth == day }
 
                         Box(
                             modifier = Modifier
@@ -517,45 +505,15 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
                                 .aspectRatio(1f),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isPaymentDay) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .border(
-                                            width = 1.dp,
-                                            color = vibrantBlue,
-                                            shape = CircleShape
-                                        )
-                                )
-                            } else if (isPreHoliday) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .border(
-                                            width = 1.dp,
-                                            color = orangeColor,
-                                            shape = CircleShape
-                                        )
-                                )
-                            } else if (isDayOff) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                                            shape = CircleShape
-                                        )
-                                )
-                            }
                             Text(
                                 text = day.toString(),
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    fontWeight = if (isPaymentDay) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 12.sp
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 15.6.sp
                                 ),
                                 color = when {
-                                    isPaymentDay -> vibrantBlue
+                                    isDayOff -> Color.Red
+                                    isPreHoliday -> Color.Red.copy(alpha = 0.5f)
                                     else -> MaterialTheme.colorScheme.onSurface
                                 }
                             )
@@ -571,8 +529,7 @@ private fun CalendarGrid(monthMeta: MonthMeta, events: List<PaymentEvent>, local
 private fun PaymentRow(
     amountText: String,
     dateText: String,
-    isPast: Boolean = false,
-    fontSizeMultiplier: Float = 1f
+    isPast: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -589,15 +546,12 @@ private fun PaymentRow(
             text = amountText,
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Normal,
-                color = color,
-                fontSize = MaterialTheme.typography.bodyLarge.fontSize * fontSizeMultiplier
+                color = color
             )
         )
         Text(
             text = dateText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = MaterialTheme.typography.bodyMedium.fontSize * fontSizeMultiplier
-            ),
+            style = MaterialTheme.typography.bodyMedium,
             color = dateColor
         )
     }
