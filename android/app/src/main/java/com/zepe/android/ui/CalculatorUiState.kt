@@ -1,6 +1,12 @@
 package com.zepe.android.ui
 
 import com.zepe.android.domain.model.MonthMeta
+import java.time.LocalDate
+
+data class UserPayment(
+    val date: LocalDate,
+    val amount: Int
+)
 
 data class CalculatorUiState(
     val salaryInput: String = "",
@@ -8,4 +14,5 @@ data class CalculatorUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val months: List<MonthMeta> = emptyList(),
+    val userPayments: List<UserPayment> = emptyList(),
 )

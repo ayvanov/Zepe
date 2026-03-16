@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class CalculatorViewModel(
     private val settingsRepository: SettingsRepository,
@@ -36,6 +37,10 @@ class CalculatorViewModel(
 
     fun onSalaryChange(value: String) {
         _uiState.update { it.copy(salaryInput = value, errorMessage = null) }
+    }
+
+    fun addUserPayment(date: LocalDate, amount: Int) {
+        _uiState.update { it.copy(userPayments = it.userPayments + UserPayment(date, amount)) }
     }
 
     fun calculate() {

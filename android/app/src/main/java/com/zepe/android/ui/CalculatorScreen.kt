@@ -2,6 +2,7 @@ package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,18 +15,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -38,7 +44,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,8 +76,10 @@ import com.zepe.android.domain.model.MonthMeta
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -94,6 +104,7 @@ fun CalculatorScreen() {
         state = uiState,
         onSalaryChange = viewModel::onSalaryChange,
         onCalculate = viewModel::calculate,
+        onAddUserPayment = viewModel::addUserPayment
     )
 }
 
@@ -103,6 +114,7 @@ fun CalculatorScreen(
     state: CalculatorUiState,
     onSalaryChange: (String) -> Unit,
     onCalculate: () -> Unit,
+    onAddUserPayment: (LocalDate, Int) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val sheetState = rememberModalBottomSheetState()
@@ -121,6 +133,9 @@ fun CalculatorScreen(
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
     var isRefreshing by remember { mutableStateOf(false) }
 
+    var showAddPaymentDialog by remember { mutableStateOf(false) }
+    var targetMonthForNewPayment by remember { mutableStateOf<LocalDate?>(null) }
+
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbarHostState.showSnackbar(it) }
     }
@@ -129,13 +144,16 @@ fun CalculatorScreen(
         state.months.associateBy { it.year to it.monthNum }
     }
 
-    val groupedPayments = remember(state.months) {
-        state.months.flatMap { month ->
+    val groupedPayments = remember(state.months, state.userPayments) {
+        val autoPayments = state.months.flatMap { month ->
             listOfNotNull(
                 PaymentEvent(month.advanceDate, month.advanceValue),
                 month.restDate?.let { PaymentEvent(it, month.restValue) }
             )
         }
+        val userEvents = state.userPayments.map { PaymentEvent(it.date, it.amount) }
+
+        (autoPayments + userEvents)
             .groupBy { it.date.year to it.date.monthValue }
             .toList()
             .sortedWith(compareBy({ it.first.first }, { it.first.second }))
@@ -208,10 +226,13 @@ fun CalculatorScreen(
                             shape = shape,
                             showDivider = !isLast,
                             isExpanded = isExpanded,
-                            onExpandToggle = { expandedStates[groupKey] = !isExpanded }
+                            onExpandToggle = { expandedStates[groupKey] = !isExpanded },
+                            onAddPaymentClick = {
+                                targetMonthForNewPayment = groupDate
+                                showAddPaymentDialog = true
+                            }
                         )
 
-                        // Добавляем карточку ИТОГО ЗА ГОД после декабря текущего года
                         val now = LocalDate.now()
                         if (groupDate.monthValue == 12 && groupDate.year == now.year) {
                             val yearTotal = groupedPayments
@@ -232,6 +253,17 @@ fun CalculatorScreen(
                 }
             }
         }
+    }
+
+    if (showAddPaymentDialog && targetMonthForNewPayment != null) {
+        AddPaymentDialog(
+            initialDate = targetMonthForNewPayment!!,
+            onDismiss = { showAddPaymentDialog = false },
+            onConfirm = { date, amount ->
+                onAddUserPayment(date, amount)
+                showAddPaymentDialog = false
+            }
+        )
     }
 
     if (showBottomSheet.value) {
@@ -338,7 +370,8 @@ private fun MonthCard(
     shape: Shape,
     showDivider: Boolean,
     isExpanded: Boolean,
-    onExpandToggle: () -> Unit
+    onExpandToggle: () -> Unit,
+    onAddPaymentClick: () -> Unit
 ) {
     val now = remember { LocalDate.now() }
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
@@ -376,9 +409,20 @@ private fun MonthCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = onAddPaymentClick,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Добавить",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     Text(
                         text = monthTitle,
                         style = MaterialTheme.typography.labelLarge.copy(
@@ -441,7 +485,6 @@ private fun MonthCard(
                 }
             }
 
-            // Убираем бордер (дивайдер) у текущего месяца
             if (showDivider && !isCurrentMonth) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -453,18 +496,95 @@ private fun MonthCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddPaymentDialog(
+    initialDate: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, Int) -> Unit
+) {
+    var amountText by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf(initialDate) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("ОК") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Добавить выплату или расход") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Сумма (расход с минусом)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy")),
+                    onValueChange = {},
+                    label = { Text("Дата") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
+                        }
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amount = amountText.toIntOrNull() ?: 0
+                    onConfirm(selectedDate, amount)
+                },
+                enabled = amountText.isNotEmpty()
+            ) {
+                Text("Добавить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
 @Composable
 private fun CalendarGrid(monthMeta: MonthMeta, locale: Locale) {
     val yearMonth = YearMonth.of(monthMeta.year, monthMeta.monthNum)
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = LocalDate.of(monthMeta.year, monthMeta.monthNum, 1)
 
-    // DayOfWeek.value: 1 (Mon) to 7 (Sun)
     val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value
     val emptyCellsBefore = firstDayOfWeek - 1
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Weekday headers
         Row(modifier = Modifier.fillMaxWidth()) {
             val weekdays = listOf(
                 DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
@@ -483,7 +603,6 @@ private fun CalendarGrid(monthMeta: MonthMeta, locale: Locale) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Days grid
         val totalCells = daysInMonth + emptyCellsBefore
         val rows = (totalCells + 6) / 7
 
