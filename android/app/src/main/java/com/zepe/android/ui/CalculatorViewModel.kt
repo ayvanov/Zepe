@@ -27,10 +27,16 @@ class CalculatorViewModel(
 
     init {
         viewModelScope.launch {
-            val savedSalary = settingsRepository.salaryFlow.first()
-            if (savedSalary.isNotEmpty()) {
-                _uiState.update { it.copy(salaryInput = savedSalary) }
-                calculate()
+            launch {
+                val savedSalary = settingsRepository.salaryFlow.first()
+                if (savedSalary.isNotEmpty()) {
+                    _uiState.update { it.copy(salaryInput = savedSalary) }
+                    calculate()
+                }
+            }
+            launch {
+                val savedPayments = settingsRepository.userPaymentsFlow.first()
+                _uiState.update { it.copy(userPayments = savedPayments) }
             }
         }
     }
@@ -39,8 +45,33 @@ class CalculatorViewModel(
         _uiState.update { it.copy(salaryInput = value, errorMessage = null) }
     }
 
-    fun addUserPayment(date: LocalDate, amount: Int) {
-        _uiState.update { it.copy(userPayments = it.userPayments + UserPayment(date, amount)) }
+    fun addUserPayment(date: LocalDate, amount: Double) {
+        val newPayment = UserPayment(date, amount)
+        val updatedPayments = uiState.value.userPayments + newPayment
+        _uiState.update { it.copy(userPayments = updatedPayments) }
+        viewModelScope.launch {
+            settingsRepository.saveUserPayments(updatedPayments)
+        }
+    }
+
+    fun editUserPayment(oldPayment: UserPayment, newPayment: UserPayment) {
+        val updatedPayments = uiState.value.userPayments.toMutableList()
+        val index = updatedPayments.indexOf(oldPayment)
+        if (index != -1) {
+            updatedPayments[index] = newPayment
+            _uiState.update { it.copy(userPayments = updatedPayments) }
+            viewModelScope.launch {
+                settingsRepository.saveUserPayments(updatedPayments)
+            }
+        }
+    }
+
+    fun deleteUserPayment(payment: UserPayment) {
+        val updatedPayments = uiState.value.userPayments - payment
+        _uiState.update { it.copy(userPayments = updatedPayments) }
+        viewModelScope.launch {
+            settingsRepository.saveUserPayments(updatedPayments)
+        }
     }
 
     fun calculate() {

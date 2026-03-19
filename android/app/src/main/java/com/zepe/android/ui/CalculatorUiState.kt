@@ -5,7 +5,7 @@ import java.time.LocalDate
 
 data class UserPayment(
     val date: LocalDate,
-    val amount: Int
+    val amount: Double
 )
 
 data class CalculatorUiState(

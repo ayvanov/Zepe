@@ -2,6 +2,7 @@ package com.zepe.android.ui
 
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,13 +42,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -87,7 +93,8 @@ import kotlin.math.abs
 
 private data class PaymentEvent(
     val date: LocalDate,
-    val amount: Int
+    val amount: Double,
+    val userPayment: UserPayment? = null
 )
 
 @Composable
@@ -104,7 +111,9 @@ fun CalculatorScreen() {
         state = uiState,
         onSalaryChange = viewModel::onSalaryChange,
         onCalculate = viewModel::calculate,
-        onAddUserPayment = viewModel::addUserPayment
+        onAddUserPayment = viewModel::addUserPayment,
+        onEditUserPayment = viewModel::editUserPayment,
+        onDeleteUserPayment = viewModel::deleteUserPayment
     )
 }
 
@@ -114,7 +123,9 @@ fun CalculatorScreen(
     state: CalculatorUiState,
     onSalaryChange: (String) -> Unit,
     onCalculate: () -> Unit,
-    onAddUserPayment: (LocalDate, Int) -> Unit
+    onAddUserPayment: (LocalDate, Double) -> Unit,
+    onEditUserPayment: (UserPayment, UserPayment) -> Unit,
+    onDeleteUserPayment: (UserPayment) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val sheetState = rememberModalBottomSheetState()
@@ -134,6 +145,7 @@ fun CalculatorScreen(
     var isRefreshing by remember { mutableStateOf(false) }
 
     var showAddPaymentDialog by remember { mutableStateOf(false) }
+    var editingPayment by remember { mutableStateOf<UserPayment?>(null) }
     var targetMonthForNewPayment by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(state.errorMessage) {
@@ -147,16 +159,17 @@ fun CalculatorScreen(
     val groupedPayments = remember(state.months, state.userPayments) {
         val autoPayments = state.months.flatMap { month ->
             listOfNotNull(
-                PaymentEvent(month.advanceDate, month.advanceValue),
-                month.restDate?.let { PaymentEvent(it, month.restValue) }
+                PaymentEvent(month.advanceDate, month.advanceValue.toDouble()),
+                month.restDate?.let { PaymentEvent(it, month.restValue.toDouble()) }
             )
         }
-        val userEvents = state.userPayments.map { PaymentEvent(it.date, it.amount) }
+        val userEvents = state.userPayments.map { PaymentEvent(it.date, it.amount, it) }
 
         (autoPayments + userEvents)
             .groupBy { it.date.year to it.date.monthValue }
             .toList()
             .sortedWith(compareBy({ it.first.first }, { it.first.second }))
+            .map { (key, events) -> key to events.sortedBy { it.date } }
     }
 
     Scaffold(
@@ -228,8 +241,26 @@ fun CalculatorScreen(
                             isExpanded = isExpanded,
                             onExpandToggle = { expandedStates[groupKey] = !isExpanded },
                             onAddPaymentClick = {
+                                editingPayment = null
                                 targetMonthForNewPayment = groupDate
                                 showAddPaymentDialog = true
+                            },
+                            onEditUserPayment = { payment ->
+                                editingPayment = payment
+                                showAddPaymentDialog = true
+                            },
+                            onDeleteUserPayment = { payment ->
+                                scope.launch {
+                                    onDeleteUserPayment(payment)
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Выплата удалена",
+                                        actionLabel = "Отмена",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        onAddUserPayment(payment.date, payment.amount)
+                                    }
+                                }
                             }
                         )
 
@@ -255,13 +286,22 @@ fun CalculatorScreen(
         }
     }
 
-    if (showAddPaymentDialog && targetMonthForNewPayment != null) {
+    if (showAddPaymentDialog) {
         AddPaymentDialog(
-            initialDate = targetMonthForNewPayment!!,
-            onDismiss = { showAddPaymentDialog = false },
-            onConfirm = { date, amount ->
-                onAddUserPayment(date, amount)
+            initialDate = editingPayment?.date ?: targetMonthForNewPayment ?: LocalDate.now(),
+            initialAmount = editingPayment?.amount,
+            onDismiss = { 
                 showAddPaymentDialog = false
+                editingPayment = null
+            },
+            onConfirm = { date, amount ->
+                if (editingPayment != null) {
+                    onEditUserPayment(editingPayment!!, UserPayment(date, amount))
+                } else {
+                    onAddUserPayment(date, amount)
+                }
+                showAddPaymentDialog = false
+                editingPayment = null
             }
         )
     }
@@ -281,7 +321,11 @@ fun CalculatorScreen(
             ) {
                 OutlinedTextField(
                     value = state.salaryInput,
-                    onValueChange = onSalaryChange,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() }) {
+                            onSalaryChange(newValue)
+                        }
+                    },
                     label = { Text("Зарплата") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -321,7 +365,7 @@ fun CalculatorScreen(
 
 @Composable
 private fun YearTotalCard(
-    totalAmount: Int,
+    totalAmount: Double,
     moneyFormatter: CompactDecimalFormat
 ) {
     val amountColor = when {
@@ -371,10 +415,17 @@ private fun MonthCard(
     showDivider: Boolean,
     isExpanded: Boolean,
     onExpandToggle: () -> Unit,
-    onAddPaymentClick: () -> Unit
+    onAddPaymentClick: () -> Unit,
+    onEditUserPayment: (UserPayment) -> Unit,
+    onDeleteUserPayment: (UserPayment) -> Unit
 ) {
     val now = remember { LocalDate.now() }
     val isCurrentMonth = monthDate.monthValue == now.monthValue && monthDate.year == now.year
+    val cardBg = if (isCurrentMonth) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
 
     Card(
         modifier = Modifier
@@ -382,11 +433,7 @@ private fun MonthCard(
             .clip(shape),
         shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = if (isCurrentMonth) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
+            containerColor = cardBg
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp
@@ -447,11 +494,24 @@ private fun MonthCard(
                 }
 
                 events.forEach { event ->
-                    PaymentRow(
-                        amountText = moneyFormatter.format(event.amount),
-                        dateText = event.date.format(dateFormatter),
-                        isPast = event.date.isBefore(now)
-                    )
+                    if (event.userPayment != null) {
+                        InteractivePaymentRow(
+                            event = event,
+                            moneyFormatter = moneyFormatter,
+                            dateFormatter = dateFormatter,
+                            isPast = event.date.isBefore(now),
+                            onDelete = { onDeleteUserPayment(event.userPayment) },
+                            onEdit = { onEditUserPayment(event.userPayment) },
+                            backgroundColor = cardBg
+                        )
+                    } else {
+                        PaymentRow(
+                            amount = event.amount,
+                            moneyFormatter = moneyFormatter,
+                            dateText = event.date.format(dateFormatter),
+                            isPast = event.date.isBefore(now)
+                        )
+                    }
                 }
 
                 if (events.isNotEmpty()) {
@@ -498,12 +558,84 @@ private fun MonthCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun InteractivePaymentRow(
+    event: PaymentEvent,
+    moneyFormatter: CompactDecimalFormat,
+    dateFormatter: DateTimeFormatter,
+    isPast: Boolean,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    backgroundColor: Color
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onDelete()
+                    true
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onEdit()
+                    false // Не удаляем строку при свайпе вправо
+                }
+                else -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val isEdit = direction == SwipeToDismissBoxValue.StartToEnd
+            val isDelete = direction == SwipeToDismissBoxValue.EndToStart
+            
+            val color = when {
+                isEdit -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                isDelete -> Color.Red.copy(alpha = 0.8f)
+                else -> Color.Transparent
+            }
+
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (dismissState.progress > 0) color else Color.Transparent)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = if (isEdit) Alignment.CenterStart else Alignment.CenterEnd
+            ) {
+                if (dismissState.progress > 0.1f) {
+                    Icon(
+                        imageVector = if (isEdit) Icons.Default.Edit else Icons.Default.Delete,
+                        contentDescription = if (isEdit) "Редактировать" else "Удалить",
+                        tint = Color.White
+                    )
+                }
+            }
+        },
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        PaymentRow(
+            amount = event.amount,
+            moneyFormatter = moneyFormatter,
+            dateText = event.date.format(dateFormatter),
+            isPast = isPast,
+            modifier = Modifier
+                .background(backgroundColor)
+                .padding(vertical = 4.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AddPaymentDialog(
     initialDate: LocalDate,
+    initialAmount: Double? = null,
     onDismiss: () -> Unit,
-    onConfirm: (LocalDate, Int) -> Unit
+    onConfirm: (LocalDate, Double) -> Unit
 ) {
-    var amountText by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf(initialAmount?.toString()?.replace(".0", "") ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(initialDate) }
 
@@ -531,14 +663,36 @@ private fun AddPaymentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Добавить выплату или расход") },
+        title = { Text(if (initialAmount != null) "Редактировать выплату" else "Добавить выплату или расход") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it },
+                    onValueChange = { newValue ->
+                        // Разрешаем только цифры, одну точку или одну запятую, и минус в начале
+                        val filtered = newValue.replace(',', '.')
+                        if (filtered.isEmpty() || 
+                            filtered == "-" || 
+                            filtered.toDoubleOrNull() != null || 
+                            (filtered.count { it == '.' } <= 1 && filtered.all { it.isDigit() || it == '.' || it == '-' })
+                        ) {
+                            amountText = newValue
+                        }
+                    },
                     label = { Text("Сумма (расход с минусом)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val amount = amountText.replace(',', '.').toDoubleOrNull()
+                            if (amount != null) {
+                                onConfirm(selectedDate, amount)
+                            }
+                        }
+                    ),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -559,12 +713,12 @@ private fun AddPaymentDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amount = amountText.toIntOrNull() ?: 0
+                    val amount = amountText.replace(',', '.').toDoubleOrNull() ?: 0.0
                     onConfirm(selectedDate, amount)
                 },
-                enabled = amountText.isNotEmpty()
+                enabled = amountText.isNotEmpty() && amountText != "-"
             ) {
-                Text("Добавить")
+                Text(if (initialAmount != null) "Сохранить" else "Добавить")
             }
         },
         dismissButton = {
@@ -646,23 +800,31 @@ private fun CalendarGrid(monthMeta: MonthMeta, locale: Locale) {
 
 @Composable
 private fun PaymentRow(
-    amountText: String,
+    amount: Double,
+    moneyFormatter: CompactDecimalFormat,
     dateText: String,
-    isPast: Boolean = false
+    isPast: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val baseColor = MaterialTheme.colorScheme.onSurface
+        val amountColor = when {
+            amount > 0 -> Color(0xFF2E7D32)
+            amount < 0 -> Color.Red
+            else -> MaterialTheme.colorScheme.onSurface
+        }
         val baseDateColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-        val color = if (isPast) baseColor.copy(alpha = 0.3f) else baseColor
+        val color = if (isPast) amountColor.copy(alpha = 0.3f) else amountColor
         val dateColor = if (isPast) baseDateColor.copy(alpha = 0.3f) else baseDateColor
 
+        val sign = if (amount > 0) "+" else if (amount < 0) "-" else ""
+
         Text(
-            text = amountText,
+            text = "$sign${moneyFormatter.format(abs(amount))}",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Normal,
                 color = color
