@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,6 +34,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -458,38 +461,52 @@ private fun MonthCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = onAddPaymentClick,
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Добавить",
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
                     Text(
                         text = monthTitle,
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
                             fontWeight = FontWeight.Bold
                         ),
-                        textAlign = TextAlign.End,
+                        textAlign = TextAlign.Start,
                         modifier = Modifier.weight(1f)
                     )
-                    
-                    IconButton(
-                        onClick = onExpandToggle,
-                        modifier = Modifier.size(24.dp).padding(start = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Показать календарь",
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
-                            modifier = Modifier.size(20.dp)
-                        )
+
+                    var showMenu by remember { mutableStateOf(false) }
+
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Меню",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = titleAlpha),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Добавить выплату") },
+                                onClick = {
+                                    showMenu = false
+                                    onAddPaymentClick()
+                                },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isExpanded) "Скрыть календарь" else "Показать календарь") },
+                                onClick = {
+                                    showMenu = false
+                                    onExpandToggle()
+                                },
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                            )
+                        }
                     }
                 }
 
